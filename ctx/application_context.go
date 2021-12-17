@@ -1,8 +1,9 @@
-package go_ctx
+package ctx
 
 import (
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
 )
@@ -73,7 +74,8 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 	defer ctxInstance.Stop()
 	ctxInstance.Start()
 
-	sigCh := make(chan os.Signal)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
 	go func() {
 		<-sigCh
 		ctxInstance.Stop()
