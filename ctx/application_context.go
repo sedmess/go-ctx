@@ -129,7 +129,7 @@ func (ctx *appContext) Start() {
 	}
 
 	if targetState == stateUsed {
-		LogFatal("can't start context, see log above")
+		LogFatal(ctxTag, "can't start context, see log above")
 	}
 
 	LogInfo("started")
