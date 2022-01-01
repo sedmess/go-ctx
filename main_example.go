@@ -11,7 +11,7 @@ type aService struct {
 }
 
 func (instance *aService) Init(_ func(serviceName string) ctx.Service) {
-	println(instance.Name(), "initialized")
+	ctx.LogInfo(instance.Name(), "initialized")
 }
 
 func (instance *aService) Name() string {
@@ -19,11 +19,11 @@ func (instance *aService) Name() string {
 }
 
 func (instance *aService) Dispose() {
-	println(instance.Name(), "disposed")
+	ctx.LogInfo(instance.Name(), "disposed")
 }
 
 func (instance *aService) Do() {
-	println(instance.Name(), "invoked")
+	ctx.LogInfo(instance.Name(), "invoked")
 }
 
 const bServiceName = "b_service"
@@ -34,7 +34,7 @@ type bService struct {
 
 func (instance *bService) Init(serviceProvider func(serviceName string) ctx.Service) {
 	instance.a = serviceProvider(aServiceName).(*aService)
-	println(instance.Name(), "initialized")
+	ctx.LogInfo(instance.Name(), "initialized")
 }
 
 func (instance *bService) Name() string {
@@ -42,11 +42,11 @@ func (instance *bService) Name() string {
 }
 
 func (instance *bService) Dispose() {
-	println(instance.Name(), "disposed")
+	ctx.LogInfo(instance.Name(), "disposed")
 }
 
 func (instance *bService) Do() {
-	println(instance.Name(), "invoked")
+	ctx.LogInfo(instance.Name(), "invoked")
 	instance.a.Do()
 }
 
@@ -58,9 +58,9 @@ type timedService struct {
 
 func (instance *timedService) Init(_ func(serviceName string) ctx.Service) {
 	instance.StartTimer(2*time.Second, func() {
-		println("onTimer!")
+		ctx.LogInfo("timer", "onTimer!")
 	})
-	println(instance.Name(), "initialized")
+	ctx.LogInfo(instance.Name(), "initialized")
 }
 
 func (instance *timedService) Name() string {
@@ -69,10 +69,10 @@ func (instance *timedService) Name() string {
 
 func (instance *timedService) Dispose() {
 	instance.StopTimer()
-	println(instance.Name(), "disposed")
+	ctx.LogInfo(instance.Name(), "disposed")
 }
 
-const appLCSerivceName = "app_lc_service"
+const appLCServiceName = "app_lc_service"
 
 type appLCService struct {
 	b *bService
@@ -80,24 +80,24 @@ type appLCService struct {
 
 func (instance *appLCService) Init(serviceProvider func(serviceName string) ctx.Service) {
 	instance.b = serviceProvider(bServiceName).(*bService)
-	println(instance.Name(), "initialized")
+	ctx.LogInfo(instance.Name(), "initialized")
 }
 
 func (instance *appLCService) Name() string {
-	return appLCSerivceName
+	return appLCServiceName
 }
 
 func (instance *appLCService) Dispose() {
-	println(instance.Name(), "disposed")
+	ctx.LogInfo(instance.Name(), "disposed")
 }
 
 func (instance *appLCService) AfterStart() {
-	println("app started")
+	ctx.LogInfo("app started")
 	instance.b.Do()
 }
 
 func (instance *appLCService) BeforeStop() {
-	println("app stopped")
+	ctx.LogInfo("app stopped")
 }
 
 func main() {
