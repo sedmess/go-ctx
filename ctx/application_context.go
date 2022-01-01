@@ -3,7 +3,6 @@ package ctx
 import (
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 )
 
@@ -18,10 +17,15 @@ type LifecycleAware interface {
 	BeforeStop()
 }
 
-const notInitialized = 0
-const initialization = 1
-const initialized = 2
-const used = -1
+type state struct {
+	name string
+	code int
+}
+
+var stateNotInitialized = state{code: 0, name: "not_initialized"}
+var stateInitialization = state{code: 1, name: "initialization"}
+var stateInitialized = state{code: 2, name: "initialized"}
+var stateUsed = state{code: -1, name: "used"}
 
 const ctxTag = "CTX"
 
@@ -35,10 +39,10 @@ type AppContext interface {
 type appContext struct {
 	sync.RWMutex
 
-	state int
+	state state
 
 	services map[string]Service
-	states   map[string]int
+	states   map[string]state
 }
 
 var globalLock sync.Mutex
@@ -48,9 +52,9 @@ var applicationContextInstance AppContext
 func ApplicationContext() AppContext {
 	applicationContextOnce.Do(func() {
 		ctx := appContext{}
-		ctx.state = notInitialized
+		ctx.state = stateNotInitialized
 		ctx.services = make(map[string]Service)
-		ctx.states = make(map[string]int)
+		ctx.states = make(map[string]state)
 		applicationContextInstance = &ctx
 	})
 	return applicationContextInstance
@@ -85,14 +89,14 @@ func (ctx *appContext) Register(serviceInstance Service) AppContext {
 	ctx.Lock()
 	defer ctx.Unlock()
 
-	ctx.checkState(notInitialized)
+	ctx.checkState(stateNotInitialized)
 
 	serviceName := serviceInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
 		LogFatal(ctxTag, "service name duplication: ["+serviceName+"]")
 	}
 	ctx.services[serviceName] = serviceInstance
-	ctx.states[serviceName] = notInitialized
+	ctx.states[serviceName] = stateNotInitialized
 	LogDebug(ctxTag, "registered service ["+serviceName+"]")
 
 	return ctx
@@ -102,21 +106,21 @@ func (ctx *appContext) Start() {
 	ctx.Lock()
 	defer ctx.Unlock()
 
-	ctx.checkState(notInitialized)
-	ctx.state = initialization
-	targetState := initialized
+	ctx.checkState(stateNotInitialized)
+	ctx.state = stateInitialization
+	targetState := stateInitialized
 
 	for serviceName, serviceInstance := range ctx.services {
-		if targetState == used {
+		if targetState == stateUsed {
 			break
 		}
-		if ctx.states[serviceName] == notInitialized {
+		if ctx.states[serviceName] == stateNotInitialized {
 			func() {
 				defer func() {
 					if err := recover(); err != nil {
 						LogError(ctxTag, "on initialization ["+serviceName+"]:", err)
 						ctx.disposeServices()
-						targetState = used
+						targetState = stateUsed
 					}
 				}()
 				ctx.initService(serviceInstance)
@@ -124,7 +128,7 @@ func (ctx *appContext) Start() {
 		}
 	}
 
-	if targetState == used {
+	if targetState == stateUsed {
 		LogFatal("can't start context, see log above")
 	}
 
@@ -134,7 +138,7 @@ func (ctx *appContext) Start() {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
 			go func() {
-				LogDebug(ctxTag, "["+serviceName+"] is livecycle awared, notify it for start event")
+				LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
 				lifecycleAwareInstance.AfterStart()
 			}()
 		}
@@ -147,7 +151,7 @@ func (ctx *appContext) Stop() {
 	ctx.Lock()
 	defer ctx.Unlock()
 
-	if ctx.state != initialized {
+	if ctx.state != stateInitialized {
 		return
 	}
 
@@ -155,13 +159,13 @@ func (ctx *appContext) Stop() {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
 			go func() {
-				LogDebug(ctxTag, "["+serviceName+"] is livecycle awared, notify it for stop event")
+				LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
 				lifecycleAwareInstance.BeforeStop()
 			}()
 		}
 	}
 
-	ctx.state = used
+	ctx.state = stateUsed
 
 	ctx.disposeServices()
 
@@ -175,24 +179,24 @@ func (ctx *appContext) GetService(serviceName string) Service {
 	ctx.RLock()
 	defer ctx.RUnlock()
 
-	ctx.checkState(initialized)
+	ctx.checkState(stateInitialized)
 
 	return ctx.services[serviceName]
 }
 
 func (ctx *appContext) initService(serviceInstance Service) {
-	ctx.states[serviceInstance.Name()] = initialization
+	ctx.states[serviceInstance.Name()] = stateInitialization
 	LogDebug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	serviceInstance.Init(func(requestedServiceName string) Service {
 		LogDebug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
-			if serviceState == initialized {
+			if serviceState == stateInitialized {
 				return requestedServiceInstance
-			} else if serviceState == initialization {
+			} else if serviceState == stateInitialization {
 				panic("CTX: ERR: cyclic dependency between [" + serviceInstance.Name() + "] and [" + requestedServiceName + "]")
 				return nil
-			} else if serviceState == notInitialized {
+			} else if serviceState == stateNotInitialized {
 				ctx.initService(requestedServiceInstance)
 				return requestedServiceInstance
 			} else {
@@ -204,12 +208,12 @@ func (ctx *appContext) initService(serviceInstance Service) {
 		}
 	})
 	LogDebug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
-	ctx.states[serviceInstance.Name()] = initialized
+	ctx.states[serviceInstance.Name()] = stateInitialized
 }
 
 func (ctx *appContext) disposeServices() {
 	for serviceName, serviceInstance := range ctx.services {
-		if ctx.states[serviceName] == initialized {
+		if ctx.states[serviceName] == stateInitialized {
 			LogDebug(ctxTag, "dispose service ["+serviceName+"]")
 			func() {
 				defer func() {
@@ -218,14 +222,14 @@ func (ctx *appContext) disposeServices() {
 					}
 				}()
 				serviceInstance.Dispose()
-				ctx.states[serviceName] = used
+				ctx.states[serviceName] = stateUsed
 			}()
 		}
 	}
 }
 
-func (ctx *appContext) checkState(expectedState int) {
+func (ctx *appContext) checkState(expectedState state) {
 	if ctx.state != expectedState {
-		LogFatal(ctxTag, "wrong state: current ("+strconv.Itoa(ctx.state)+"), expected ("+strconv.Itoa(expectedState)+")")
+		LogFatal(ctxTag, "wrong state: current ("+ctx.state.name+"), expected ("+expectedState.name+")")
 	}
 }
