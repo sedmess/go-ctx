@@ -132,7 +132,7 @@ func (ctx *appContext) Start() {
 		LogFatal(ctxTag, "can't start context, see log above")
 	}
 
-	LogInfo("started")
+	LogInfo(ctxTag, "started")
 
 	for serviceName, serviceInstance := range ctx.services {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
