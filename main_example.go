@@ -6,11 +6,14 @@ import (
 )
 
 const aServiceName = "a_service"
+const paramAName = "PARAM_A"
 
 type aService struct {
+	paramA int
 }
 
 func (instance *aService) Init(_ func(serviceName string) ctx.Service) {
+	instance.paramA = ctx.GetEnv(paramAName).AsIntDefault(5)
 	ctx.LogInfo(instance.Name(), "initialized")
 }
 
@@ -23,7 +26,7 @@ func (instance *aService) Dispose() {
 }
 
 func (instance *aService) Do() {
-	ctx.LogInfo(instance.Name(), "invoked")
+	ctx.LogInfo(instance.Name(), "invoked: paramA =", instance.paramA)
 }
 
 const bServiceName = "b_service"

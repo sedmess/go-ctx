@@ -1,10 +1,37 @@
 package ctx
 
 import (
+	"bufio"
 	"os"
 	"strconv"
 	"strings"
 )
+
+const defaultPropertiesFileName = ".env"
+
+var properties map[string]string
+
+func init() {
+	file, err := os.Open(defaultPropertiesFileName)
+	if err != nil {
+		properties = nil
+	}
+
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	envFileMap := make(map[string]string)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		substrs := strings.Split(scanner.Text(), "=")
+		if len(substrs) < 2 {
+			continue
+		}
+		envFileMap[substrs[0]] = substrs[1]
+	}
+	properties = envFileMap
+}
 
 type EnvValue struct {
 	name  string
@@ -103,6 +130,10 @@ func (instance EnvValue) fatalIfNotExists() {
 }
 
 func GetEnv(name string) EnvValue {
-	value := os.Getenv(name)
+	var value string
+	value = os.Getenv(name)
+	if len(value) == 0 && properties != nil {
+		value = properties[name]
+	}
 	return EnvValue{name: name, value: value}
 }
