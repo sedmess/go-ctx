@@ -136,9 +136,10 @@ func (ctx *appContext) Start() {
 
 	for serviceName, serviceInstance := range ctx.services {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
+		lifecycleAwareInstanceServiceName := serviceName
 		if ok {
 			go func() {
-				LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
+				LogDebug(ctxTag, "["+lifecycleAwareInstanceServiceName+"] is livecycle-aware, notify it for start event")
 				lifecycleAwareInstance.AfterStart()
 			}()
 		}
