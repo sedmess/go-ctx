@@ -103,6 +103,56 @@ func (instance *appLCService) BeforeStop() {
 	ctx.LogInfo("app stopped")
 }
 
+const connAServiceName = "conn_a_service"
+
+type connAService struct {
+	ctx.BasicConnector
+}
+
+func (instance *connAService) Name() string {
+	return connAServiceName
+}
+
+func (instance *connAService) Dispose() {
+}
+
+func (instance *connAService) OnMessage(msg interface{}) {
+	str := msg.(string)
+	ctx.LogInfo(connAServiceName, "msg: "+str)
+	instance.Send(str + "a")
+}
+
+const connBServiceName = "conn_b_service"
+
+type connBService struct {
+	ctx.BasicConnector
+}
+
+func (instance *connBService) Name() string {
+	return connBServiceName
+}
+
+func (instance *connBService) Dispose() {
+}
+
+func (instance *connBService) OnMessage(msg interface{}) {
+	str := msg.(string)
+	ctx.LogInfo(connAServiceName, "msg: "+str)
+	instance.Send(str + "b")
+}
+
 func main() {
-	ctx.StartContextualizedApplication([]ctx.Service{&aService{}, &bService{}, &timedService{}, &appLCService{}})
+	connAService := &connAService{}
+	connBService := &connBService{}
+	go func() {
+		time.Sleep(5 * time.Second)
+		connAService.Send("-")
+	}()
+
+	ctx.StartContextualizedApplication(
+		[]ctx.Service{
+			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, connBService,
+		},
+		ctx.ConnectServices(connAServiceName, connBServiceName),
+	)
 }

@@ -13,6 +13,7 @@ type Service interface {
 }
 
 type LifecycleAware interface {
+	Service
 	AfterStart()
 	BeforeStop()
 }
@@ -83,6 +84,14 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 	}()
 
 	<-make(chan bool)
+}
+
+func (ctx *appContext) RegisterMulti(serviceInstances []Service) AppContext {
+	for _, serviceInstance := range serviceInstances {
+		ctx.Register(serviceInstance)
+	}
+
+	return ctx
 }
 
 func (ctx *appContext) Register(serviceInstance Service) AppContext {
