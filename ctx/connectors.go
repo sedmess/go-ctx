@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-type OnMessageListener interface {
-	OnMessage(msg interface{})
-}
-
 type ConnectableService interface {
 	LifecycleAware
 	Ingoing(inChan chan interface{})

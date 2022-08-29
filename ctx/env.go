@@ -56,7 +56,16 @@ func (instance EnvValue) AsStringDefault(def string) string {
 }
 
 func (instance EnvValue) AsStringArray() []string {
+	instance.fatalIfNotExists()
 	return strings.Split(instance.value, ",")
+}
+
+func (instance EnvValue) AsStringArrayDefault(def []string) []string {
+	if instance.IsPresent() {
+		return strings.Split(instance.value, ",")
+	} else {
+		return def
+	}
 }
 
 func (instance EnvValue) AsInt() int {
