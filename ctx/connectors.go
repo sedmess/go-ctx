@@ -68,7 +68,7 @@ type mutualConnectableConnector struct {
 	pairs [][]string
 }
 
-func ConnectServices(services ...string) []Service {
+func ConnectServices(services ...string) Service {
 	if len(services)%2 == 1 {
 		panic("wrong arguments")
 	}
@@ -76,11 +76,9 @@ func ConnectServices(services ...string) []Service {
 	for i := 0; i < len(services); i += 2 {
 		pairs = append(pairs, []string{services[i], services[i+1]})
 	}
-	return []Service{
-		&mutualConnectableConnector{
-			name:  mutualConnectableConnectorNamePrefix + strconv.FormatInt(time.Now().Unix(), 36),
-			pairs: pairs,
-		},
+	return &mutualConnectableConnector{
+		name:  mutualConnectableConnectorNamePrefix + strconv.FormatInt(time.Now().UnixNano(), 36),
+		pairs: pairs,
 	}
 }
 
@@ -96,7 +94,7 @@ func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceNam
 		}
 		service1.Ingoing(service2.Outgoing())
 		service2.Ingoing(service1.Outgoing())
-		LogInfo(instance.name, "connected services:", pair[0], pair[1])
+		LogDebug(instance.name, "connected services:", pair[0], pair[1])
 	}
 }
 

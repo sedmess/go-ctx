@@ -170,6 +170,6 @@ func main() {
 		[]ctx.Service{
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, NewConnBService(),
 		},
-		ctx.ConnectServices(connAServiceName, connBServiceName),
+		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
 }
