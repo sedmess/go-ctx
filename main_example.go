@@ -107,6 +107,17 @@ const connAServiceName = "conn_a_service"
 
 type connAService struct {
 	ctx.BasicConnector
+	b *bService
+}
+
+func NewConnAService() *connAService {
+	service := &connAService{}
+	service.BasicConnector = ctx.NewBasicConnector(service.OnMessage)
+	return service
+}
+
+func (instance *connAService) Init(serviceProvider func(msg string) ctx.Service) {
+	instance.b = serviceProvider(bServiceName).(*bService)
 }
 
 func (instance *connAService) Name() string {
@@ -119,13 +130,26 @@ func (instance *connAService) Dispose() {
 func (instance *connAService) OnMessage(msg interface{}) {
 	str := msg.(string)
 	ctx.LogInfo(connAServiceName, "msg: "+str)
-	instance.Send(str + "a")
+	instance.b.Do()
 }
 
 const connBServiceName = "conn_b_service"
 
 type connBService struct {
 	ctx.BasicConnector
+}
+
+func NewConnBService() *connBService {
+	service := &connBService{}
+	service.BasicConnector = ctx.NewBasicConnector(func(msg interface{}) {
+		str := msg.(string)
+		ctx.LogInfo(connBServiceName, "msg: "+str)
+		service.Send(str + "b")
+	})
+	return service
+}
+
+func (instance *connBService) Init(_ func(msg string) ctx.Service) {
 }
 
 func (instance *connBService) Name() string {
@@ -135,23 +159,16 @@ func (instance *connBService) Name() string {
 func (instance *connBService) Dispose() {
 }
 
-func (instance *connBService) OnMessage(msg interface{}) {
-	str := msg.(string)
-	ctx.LogInfo(connAServiceName, "msg: "+str)
-	instance.Send(str + "b")
-}
-
 func main() {
-	connAService := &connAService{}
-	connBService := &connBService{}
+	connAService := NewConnAService()
 	go func() {
 		time.Sleep(5 * time.Second)
-		connAService.Send("-")
+		connAService.Send("a")
 	}()
 
 	ctx.StartContextualizedApplication(
 		[]ctx.Service{
-			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, connBService,
+			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, NewConnBService(),
 		},
 		ctx.ConnectServices(connAServiceName, connBServiceName),
 	)

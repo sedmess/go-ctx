@@ -5,34 +5,34 @@ import (
 	"time"
 )
 
-type Connectable interface {
+type OnMessageListener interface {
+	OnMessage(msg interface{})
+}
+
+type ConnectableService interface {
 	LifecycleAware
 	Ingoing(inChan chan interface{})
 	Outgoing() chan interface{}
-	OnMessage(msg interface{})
 	Send(msg interface{})
 }
 
 type BasicConnector struct {
-	inCh  chan interface{}
-	outCh chan interface{}
-	qCh   chan bool
+	inCh              chan interface{}
+	outCh             chan interface{}
+	qCh               chan bool
+	onMessageListener func(msg interface{})
 }
 
-func (connector *BasicConnector) Init(_ func(string) Service) {
-	connector.outCh = make(chan interface{})
+func NewBasicConnector(listener func(msg interface{})) BasicConnector {
+	return BasicConnector{onMessageListener: listener, outCh: make(chan interface{})}
 }
 
 func (connector *BasicConnector) Ingoing(inChan chan interface{}) {
 	connector.inCh = inChan
 }
 
-func (connector *BasicConnector) OnMessage(msg interface{}) {
-	panic("not implemented")
-}
-
 func (connector *BasicConnector) AfterStart() {
-	connector.listen(connector.OnMessage)
+	connector.listen(connector.onMessageListener)
 }
 
 func (connector *BasicConnector) BeforeStop() {
@@ -90,13 +90,13 @@ func ConnectServices(services ...string) []Service {
 
 func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceName string) Service) {
 	for _, pair := range instance.pairs {
-		service1, ok := serviceProvider(pair[0]).(Connectable)
+		service1, ok := serviceProvider(pair[0]).(ConnectableService)
 		if !ok {
-			panic(pair[0] + " not Connectable")
+			panic(pair[0] + " not ConnectableService")
 		}
-		service2, ok := serviceProvider(pair[1]).(Connectable)
+		service2, ok := serviceProvider(pair[1]).(ConnectableService)
 		if !ok {
-			panic(pair[1] + " not Connectable")
+			panic(pair[1] + " not ConnectableService")
 		}
 		service1.Ingoing(service2.Outgoing())
 		service2.Ingoing(service1.Outgoing())
