@@ -13,14 +13,15 @@ type ConnectableService interface {
 }
 
 type BasicConnector struct {
+	name              string
 	inCh              chan interface{}
 	outCh             chan interface{}
 	qCh               chan bool
 	onMessageListener func(msg interface{})
 }
 
-func NewBasicConnector(listener func(msg interface{})) BasicConnector {
-	return BasicConnector{onMessageListener: listener, outCh: make(chan interface{})}
+func NewBasicConnector(name string, listener func(msg interface{})) BasicConnector {
+	return BasicConnector{name: name, onMessageListener: listener, outCh: make(chan interface{})}
 }
 
 func (connector *BasicConnector) Ingoing(inChan chan interface{}) {
@@ -49,7 +50,14 @@ func (connector *BasicConnector) listen(onMessage func(msg interface{})) {
 		for {
 			select {
 			case msg := <-connector.inCh:
-				onMessage(msg)
+				runWithRecover(
+					func() {
+						onMessage(msg)
+					},
+					func(err error) {
+						LogError(connector.name, "during onMessage:", err)
+					},
+				)
 			case <-connector.qCh:
 				break
 			}
