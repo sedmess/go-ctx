@@ -113,7 +113,7 @@ type connAService struct {
 
 func NewConnAService() *connAService {
 	service := &connAService{}
-	service.BasicConnector = ctx.NewBasicConnector(service.Name(), service.OnMessage)
+	service.BasicConnector = ctx.NewBasicConnector(service)
 	return service
 }
 
@@ -142,11 +142,7 @@ type connBService struct {
 
 func NewConnBService() *connBService {
 	service := &connBService{}
-	service.BasicConnector = ctx.NewBasicConnector(service.Name(), func(msg interface{}) {
-		str := msg.(string)
-		ctx.LogInfo(connBServiceName, "msg: "+str)
-		service.Send(str + "b")
-	})
+	service.BasicConnector = ctx.NewBasicConnector(service)
 	return service
 }
 
@@ -158,6 +154,12 @@ func (instance *connBService) Name() string {
 }
 
 func (instance *connBService) Dispose() {
+}
+
+func (instance *connBService) OnMessage(msg interface{}) {
+	str := msg.(string)
+	ctx.LogInfo(connBServiceName, "msg: "+str)
+	instance.Send(str + "b")
 }
 
 func main() {

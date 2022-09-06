@@ -7,9 +7,12 @@ import (
 
 type ConnectableService interface {
 	LifecycleAware
+
 	Ingoing(inChan chan interface{})
 	Outgoing() chan interface{}
 	Send(msg interface{})
+
+	OnMessage(msg interface{})
 }
 
 type BasicConnector struct {
@@ -20,8 +23,8 @@ type BasicConnector struct {
 	onMessageListener func(msg interface{})
 }
 
-func NewBasicConnector(name string, listener func(msg interface{})) BasicConnector {
-	return BasicConnector{name: name, onMessageListener: listener, outCh: make(chan interface{})}
+func NewBasicConnector(service ConnectableService) BasicConnector {
+	return BasicConnector{name: service.Name(), onMessageListener: service.OnMessage, outCh: make(chan interface{})}
 }
 
 func (connector *BasicConnector) Ingoing(inChan chan interface{}) {
@@ -50,12 +53,13 @@ func (connector *BasicConnector) listen(onMessage func(msg interface{})) {
 		for {
 			select {
 			case msg := <-connector.inCh:
-				runWithRecover(
+				RunWithRecover(
 					func() {
 						onMessage(msg)
 					},
 					func(err error) {
 						LogError(connector.name, "during onMessage:", err)
+						panic(err)
 					},
 				)
 			case <-connector.qCh:
