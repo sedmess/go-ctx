@@ -132,6 +132,19 @@ func (instance EnvValue) AsBoolDefault(def bool) bool {
 	}
 }
 
+func (instance EnvValue) AsMap() *map[string]string {
+	instance.fatalIfNotExists()
+	result := make(map[string]string)
+	for _, str := range strings.Split(instance.value, "|") {
+		parts := strings.Split(str, "=")
+		if len(parts) != 2 {
+			panic(instance.name + ": can't find key-value pair in part \"" + str + "\"")
+		}
+		result[parts[0]] = parts[1]
+	}
+	return &result
+}
+
 func (instance EnvValue) fatalIfNotExists() {
 	if !instance.IsPresent() {
 		panic("environment variable " + instance.name + " not set")

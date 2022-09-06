@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/sedmess/go-ctx/ctx"
+	"os"
 	"time"
 )
 
@@ -160,6 +161,11 @@ func (instance *connBService) Dispose() {
 }
 
 func main() {
+	_ = os.Setenv("map", "key1=value1|key2=value2")
+	envMap := *ctx.GetEnv("map").AsMap()
+	println(envMap["key1"])
+	println(envMap["key2"])
+
 	connAService := NewConnAService()
 	go func() {
 		time.Sleep(5 * time.Second)
