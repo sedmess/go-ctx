@@ -2,52 +2,54 @@ package ctx
 
 import (
 	"strconv"
+	"strings"
 	"time"
 )
 
-type ConnectableService interface {
-	LifecycleAware
-
-	Ingoing(inChan chan interface{})
-	Outgoing() chan interface{}
-	Send(msg interface{})
-
-	OnMessage(msg interface{})
+type connectable interface {
+	ingoing(inChan chan any)
+	outgoing() chan any
 }
 
-type BasicConnector struct {
+type ConnectableService[In any, Out any] interface {
+	Service
+	OnMessage(In)
+	Send(Out)
+}
+
+type ServiceConnector[In any, Out any] struct {
 	name              string
-	inCh              chan interface{}
-	outCh             chan interface{}
+	inCh              chan any
+	outCh             chan any
 	qCh               chan bool
-	onMessageListener func(msg interface{})
+	onMessageListener func(msg In)
 }
 
-func NewBasicConnector(service ConnectableService) BasicConnector {
-	return BasicConnector{name: service.Name(), onMessageListener: service.OnMessage, outCh: make(chan interface{})}
+func NewServiceConnector[In any, Out any](service ConnectableService[In, Out]) ServiceConnector[In, Out] {
+	return ServiceConnector[In, Out]{name: service.Name(), onMessageListener: service.OnMessage, outCh: make(chan any)}
 }
 
-func (connector *BasicConnector) Ingoing(inChan chan interface{}) {
-	connector.inCh = inChan
-}
-
-func (connector *BasicConnector) AfterStart() {
+func (connector *ServiceConnector[In, Out]) AfterStart() {
 	connector.listen(connector.onMessageListener)
 }
 
-func (connector *BasicConnector) BeforeStop() {
+func (connector *ServiceConnector[In, Out]) BeforeStop() {
 	connector.stopListening()
 }
 
-func (connector *BasicConnector) Send(msg interface{}) {
+func (connector *ServiceConnector[In, Out]) Send(msg Out) {
 	connector.outCh <- msg
 }
 
-func (connector *BasicConnector) Outgoing() chan interface{} {
+func (connector *ServiceConnector[In, Out]) ingoing(inChan chan any) {
+	connector.inCh = inChan
+}
+
+func (connector *ServiceConnector[In, Out]) outgoing() chan any {
 	return connector.outCh
 }
 
-func (connector *BasicConnector) listen(onMessage func(msg interface{})) {
+func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 	connector.qCh = make(chan bool)
 	go func() {
 		for {
@@ -55,7 +57,7 @@ func (connector *BasicConnector) listen(onMessage func(msg interface{})) {
 			case msg := <-connector.inCh:
 				RunWithRecover(
 					func() {
-						onMessage(msg)
+						onMessage(msg.(In))
 					},
 					func(err error) {
 						LogError(connector.name, "during onMessage:", err)
@@ -69,7 +71,7 @@ func (connector *BasicConnector) listen(onMessage func(msg interface{})) {
 	}()
 }
 
-func (connector *BasicConnector) stopListening() {
+func (connector *ServiceConnector[In, Out]) stopListening() {
 	connector.qCh <- true
 }
 
@@ -96,17 +98,17 @@ func ConnectServices(services ...string) Service {
 
 func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceName string) Service) {
 	for _, pair := range instance.pairs {
-		service1, ok := serviceProvider(pair[0]).(ConnectableService)
+		service1, ok := serviceProvider(pair[0]).(connectable)
 		if !ok {
-			panic(pair[0] + " not ConnectableService")
+			panic(pair[0] + " can't be connected")
 		}
-		service2, ok := serviceProvider(pair[1]).(ConnectableService)
+		service2, ok := serviceProvider(pair[1]).(connectable)
 		if !ok {
-			panic(pair[1] + " not ConnectableService")
+			panic(pair[1] + " can't be connected")
 		}
-		service1.Ingoing(service2.Outgoing())
-		service2.Ingoing(service1.Outgoing())
-		LogDebug(instance.name, "connected services:", pair[0], pair[1])
+		service1.ingoing(service2.outgoing())
+		service2.ingoing(service1.outgoing())
+		LogDebug(instance.name, "connected services:", strings.Join([]string{pair[0], pair[1]}, ","))
 	}
 }
 

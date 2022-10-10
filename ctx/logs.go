@@ -15,27 +15,27 @@ func IsDebugLogEnabled() bool {
 	return debugEnabled
 }
 
-func LogDebug(tag string, data ...interface{}) {
+func LogDebug(tag string, data ...any) {
 	if debugEnabled {
 		log.Println(withTags(tag, "DEBUG", data)...)
 	}
 }
 
-func LogInfo(tag string, data ...interface{}) {
+func LogInfo(tag string, data ...any) {
 	log.Println(withTags(tag, "INFO", data)...)
 }
 
-func LogError(tag string, data ...interface{}) {
+func LogError(tag string, data ...any) {
 	log.Println(withTags(tag, "ERROR", data)...)
 }
 
-func LogFatal(tag string, data ...interface{}) {
+func LogFatal(tag string, data ...any) {
 	log.Fatalln(withTags(tag, "FATAL", data)...)
 }
 
-func withTags(tag string, level string, data []interface{}) []interface{} {
+func withTags(tag string, level string, data []any) []any {
 	if data == nil || len(data) == 0 {
-		data = make([]interface{}, 2)
+		data = make([]any, 2)
 	} else {
 		data = append(data, nil, nil)
 		copy(data[2:], data)

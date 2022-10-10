@@ -107,13 +107,13 @@ func (instance *appLCService) BeforeStop() {
 const connAServiceName = "conn_a_service"
 
 type connAService struct {
-	ctx.BasicConnector
+	ctx.ServiceConnector[string, string]
 	b *bService
 }
 
 func NewConnAService() *connAService {
 	service := &connAService{}
-	service.BasicConnector = ctx.NewBasicConnector(service)
+	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
 }
 
@@ -128,21 +128,20 @@ func (instance *connAService) Name() string {
 func (instance *connAService) Dispose() {
 }
 
-func (instance *connAService) OnMessage(msg interface{}) {
-	str := msg.(string)
-	ctx.LogInfo(connAServiceName, "msg: "+str)
+func (instance *connAService) OnMessage(msg string) {
+	ctx.LogInfo(connAServiceName, "msg: "+msg)
 	instance.b.Do()
 }
 
 const connBServiceName = "conn_b_service"
 
 type connBService struct {
-	ctx.BasicConnector
+	ctx.ServiceConnector[string, string]
 }
 
 func NewConnBService() *connBService {
 	service := &connBService{}
-	service.BasicConnector = ctx.NewBasicConnector(service)
+	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
 }
 
@@ -156,10 +155,9 @@ func (instance *connBService) Name() string {
 func (instance *connBService) Dispose() {
 }
 
-func (instance *connBService) OnMessage(msg interface{}) {
-	str := msg.(string)
-	ctx.LogInfo(connBServiceName, "msg: "+str)
-	instance.Send(str + "b")
+func (instance *connBService) OnMessage(msg string) {
+	ctx.LogInfo(connBServiceName, "msg: "+msg)
+	instance.Send(msg + "b")
 }
 
 func main() {
