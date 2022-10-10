@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -9,6 +10,8 @@ import (
 type connectable interface {
 	ingoing(inChan chan any)
 	outgoing() chan any
+	inType() reflect.Type
+	outType() reflect.Type
 }
 
 type ConnectableService[In any, Out any] interface {
@@ -47,6 +50,16 @@ func (connector *ServiceConnector[In, Out]) ingoing(inChan chan any) {
 
 func (connector *ServiceConnector[In, Out]) outgoing() chan any {
 	return connector.outCh
+}
+
+func (connector *ServiceConnector[In, Out]) inType() reflect.Type {
+	var in In
+	return reflect.TypeOf(in)
+}
+
+func (connector *ServiceConnector[In, Out]) outType() reflect.Type {
+	var out Out
+	return reflect.TypeOf(out)
 }
 
 func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
@@ -106,9 +119,16 @@ func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceNam
 		if !ok {
 			panic(pair[1] + " can't be connected")
 		}
+
+		srvsStr := strings.Join([]string{pair[0], pair[1]}, ",")
+
+		if service1.inType() != service2.outType() || service1.outType() != service2.inType() {
+			panic(srvsStr + " can't be connected")
+		}
+
 		service1.ingoing(service2.outgoing())
 		service2.ingoing(service1.outgoing())
-		LogDebug(instance.name, "connected services:", strings.Join([]string{pair[0], pair[1]}, ","))
+		LogDebug(instance.name, "connected services:", srvsStr)
 	}
 }
 
