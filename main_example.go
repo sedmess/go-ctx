@@ -111,7 +111,7 @@ type connAService struct {
 	b *bService
 }
 
-func NewConnAService() *connAService {
+func newConnAService() *connAService {
 	service := &connAService{}
 	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
@@ -139,7 +139,7 @@ type connBService struct {
 	ctx.ServiceConnector[string, string]
 }
 
-func NewConnBService() *connBService {
+func newConnBService() *connBService {
 	service := &connBService{}
 	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
@@ -161,12 +161,12 @@ func (instance *connBService) OnMessage(msg string) {
 }
 
 func main() {
-	_ = os.Setenv("map", "key1=value1|key2=value2")
-	envMap := *ctx.GetEnv("map").AsMap()
-	println(envMap["key1"])
-	println(envMap["key2"])
+	_ = os.Setenv("map", "key1=value1|key2=123")
+	envMap := ctx.GetEnv("map").AsMap()
+	println(envMap["key1"].AsString())
+	println(envMap["key2"].AsInt())
 
-	connAService := NewConnAService()
+	connAService := newConnAService()
 	go func() {
 		time.Sleep(5 * time.Second)
 		connAService.Send("a")
@@ -174,7 +174,7 @@ func main() {
 
 	ctx.StartContextualizedApplication(
 		[]ctx.Service{
-			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, NewConnBService(),
+			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(),
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

@@ -38,16 +38,16 @@ type EnvValue struct {
 	value string
 }
 
-func (instance EnvValue) IsPresent() bool {
+func (instance *EnvValue) IsPresent() bool {
 	return len(instance.value) != 0
 }
 
-func (instance EnvValue) AsString() string {
+func (instance *EnvValue) AsString() string {
 	instance.fatalIfNotExists()
 	return instance.value
 }
 
-func (instance EnvValue) AsStringDefault(def string) string {
+func (instance *EnvValue) AsStringDefault(def string) string {
 	if instance.IsPresent() {
 		return instance.value
 	} else {
@@ -55,12 +55,12 @@ func (instance EnvValue) AsStringDefault(def string) string {
 	}
 }
 
-func (instance EnvValue) AsStringArray() []string {
+func (instance *EnvValue) AsStringArray() []string {
 	instance.fatalIfNotExists()
 	return strings.Split(instance.value, ",")
 }
 
-func (instance EnvValue) AsStringArrayDefault(def []string) []string {
+func (instance *EnvValue) AsStringArrayDefault(def []string) []string {
 	if instance.IsPresent() {
 		return strings.Split(instance.value, ",")
 	} else {
@@ -68,7 +68,7 @@ func (instance EnvValue) AsStringArrayDefault(def []string) []string {
 	}
 }
 
-func (instance EnvValue) AsInt() int {
+func (instance *EnvValue) AsInt() int {
 	instance.fatalIfNotExists()
 	if a, err := strconv.Atoi(instance.value); err != nil {
 		panic(instance.name + ": can't convert to integer: " + instance.value)
@@ -78,7 +78,7 @@ func (instance EnvValue) AsInt() int {
 	}
 }
 
-func (instance EnvValue) AsIntDefault(def int) int {
+func (instance *EnvValue) AsIntDefault(def int) int {
 	if instance.IsPresent() {
 		if a, err := strconv.Atoi(instance.value); err != nil {
 			panic(instance.name + ": can't convert to integer: " + instance.value)
@@ -92,7 +92,7 @@ func (instance EnvValue) AsIntDefault(def int) int {
 	}
 }
 
-func (instance EnvValue) AsIntArray() []int {
+func (instance *EnvValue) AsIntArray() []int {
 	instance.fatalIfNotExists()
 	strs := instance.AsStringArray()
 	ints := make([]int, len(strs))
@@ -106,7 +106,7 @@ func (instance EnvValue) AsIntArray() []int {
 	return ints
 }
 
-func (instance EnvValue) AsIntArrayDefault() []int {
+func (instance *EnvValue) AsIntArrayDefault() []int {
 	if instance.IsPresent() {
 		return instance.AsIntArray()
 	} else {
@@ -114,7 +114,7 @@ func (instance EnvValue) AsIntArrayDefault() []int {
 	}
 }
 
-func (instance EnvValue) AsBool() bool {
+func (instance *EnvValue) AsBool() bool {
 	instance.fatalIfNotExists()
 	if boolValue, err := strconv.ParseBool(instance.value); err != nil {
 		panic(instance.name + ": can't convert to boolean: " + instance.value)
@@ -124,7 +124,7 @@ func (instance EnvValue) AsBool() bool {
 	}
 }
 
-func (instance EnvValue) AsBoolDefault(def bool) bool {
+func (instance *EnvValue) AsBoolDefault(def bool) bool {
 	if instance.IsPresent() {
 		return instance.AsBool()
 	} else {
@@ -132,30 +132,33 @@ func (instance EnvValue) AsBoolDefault(def bool) bool {
 	}
 }
 
-func (instance EnvValue) AsMap() *map[string]string {
+func (instance *EnvValue) AsMap() map[string]*EnvValue {
 	instance.fatalIfNotExists()
-	result := make(map[string]string)
+	result := make(map[string]*EnvValue)
 	for _, str := range strings.Split(instance.value, "|") {
 		parts := strings.Split(str, "=")
 		if len(parts) != 2 {
 			panic(instance.name + ": can't find key-value pair in part \"" + str + "\"")
 		}
-		result[parts[0]] = parts[1]
+		result[parts[0]] = &EnvValue{
+			name:  instance.name + "(map)." + parts[0],
+			value: parts[1],
+		}
 	}
-	return &result
+	return result
 }
 
-func (instance EnvValue) fatalIfNotExists() {
+func (instance *EnvValue) fatalIfNotExists() {
 	if !instance.IsPresent() {
 		panic("environment variable " + instance.name + " not set")
 	}
 }
 
-func GetEnv(name string) EnvValue {
+func GetEnv(name string) *EnvValue {
 	var value string
 	value = os.Getenv(name)
 	if len(value) == 0 && properties != nil {
 		value = properties[name]
 	}
-	return EnvValue{name: name, value: value}
+	return &EnvValue{name: name, value: value}
 }
