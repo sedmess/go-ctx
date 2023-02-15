@@ -68,7 +68,7 @@ func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 		for {
 			select {
 			case msg := <-connector.inCh:
-				RunWithRecover(
+				runWithRecover(
 					func() {
 						onMessage(msg.(In))
 					},

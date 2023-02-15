@@ -4,7 +4,7 @@ func ServiceArray(srvs ...Service) []Service {
 	return srvs
 }
 
-func RunWithRecover(block func(), onErr func(err error)) {
+func runWithRecover(block func(), onErr func(err error)) {
 	defer func() {
 		if err := recover(); err != nil {
 			onErr(err.(error))
