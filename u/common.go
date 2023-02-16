@@ -42,7 +42,9 @@ func WrapPanic[T any](block func() T, wrapperFunc func(reason any) any) T {
 	defer func() {
 		panicReason := recover()
 		if panicReason != nil {
-			panic(wrapperFunc(panicReason))
+			if newReason := wrapperFunc(panicReason); newReason != nil {
+				panic(newReason)
+			}
 		}
 	}()
 	return block()
