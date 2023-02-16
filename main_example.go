@@ -76,6 +76,15 @@ func (instance *timedService) Dispose() {
 	ctx.LogInfo(instance.Name(), "disposed")
 }
 
+func (instance *timedService) AfterStart() {
+	ctx.LogInfo(timedServiceName, "afterStart")
+}
+
+func (instance *timedService) BeforeStop() {
+	ctx.LogInfo(timedServiceName, "beforeStop")
+	time.Sleep(3 * time.Second)
+}
+
 const appLCServiceName = "app_lc_service"
 
 type appLCService struct {
@@ -96,12 +105,12 @@ func (instance *appLCService) Dispose() {
 }
 
 func (instance *appLCService) AfterStart() {
-	ctx.LogInfo("app started")
+	ctx.LogInfo(appLCServiceName, "app started")
 	instance.b.Do()
 }
 
 func (instance *appLCService) BeforeStop() {
-	ctx.LogInfo("app stopped")
+	ctx.LogInfo(appLCServiceName, "app stopped")
 }
 
 const connAServiceName = "conn_a_service"

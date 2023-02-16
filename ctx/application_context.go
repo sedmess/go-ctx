@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type Service interface {
@@ -75,8 +76,8 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 	defer ctxInstance.Stop()
 	ctxInstance.Start()
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		ctxInstance.Stop()
@@ -143,16 +144,20 @@ func (ctx *appContext) Start() {
 
 	LogInfo(ctxTag, "started")
 
+	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
-		lifecycleAwareInstanceServiceName := serviceName
+		localServiceName := serviceName
 		if ok {
+			wg.Add(1)
 			go func() {
-				LogDebug(ctxTag, "["+lifecycleAwareInstanceServiceName+"] is livecycle-aware, notify it for start event")
+				defer wg.Done()
+				LogDebug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for start event")
 				lifecycleAwareInstance.AfterStart()
 			}()
 		}
 	}
+	wg.Wait()
 
 	ctx.state = targetState
 }
@@ -165,15 +170,27 @@ func (ctx *appContext) Stop() {
 		return
 	}
 
+	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
+		localServiceName := serviceName
 		if ok {
+			wg.Add(1)
 			go func() {
-				LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
-				lifecycleAwareInstance.BeforeStop()
+				defer wg.Done()
+				LogDebug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for stop event")
+				runWithRecover(
+					func() {
+						lifecycleAwareInstance.BeforeStop()
+					},
+					func(err error) {
+						LogError(ctxTag, "panic on ["+localServiceName+"] stopping", err)
+					},
+				)
 			}()
 		}
 	}
+	wg.Wait()
 
 	ctx.state = stateUsed
 
