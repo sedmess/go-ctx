@@ -72,9 +72,9 @@ func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 					func() {
 						onMessage(msg.(In))
 					},
-					func(err error) {
-						LogError(connector.name, "during onMessage:", err)
-						panic(err)
+					func(reason any) {
+						LogError(connector.name, "during onMessage:", reason)
+						panic(reason)
 					},
 				)
 			case <-connector.qCh:

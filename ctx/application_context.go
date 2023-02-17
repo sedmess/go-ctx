@@ -3,6 +3,7 @@ package ctx
 import (
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sync"
 	"syscall"
 )
@@ -125,16 +126,20 @@ func (ctx *appContext) Start() {
 			break
 		}
 		if ctx.states[serviceName] == stateNotInitialized {
-			func() {
-				defer func() {
-					if err := recover(); err != nil {
-						LogError(ctxTag, "on initialization ["+serviceName+"]:", err)
-						ctx.disposeServices()
-						targetState = stateUsed
+			runWithRecover(
+				func() {
+					ctx.initService(serviceInstance)
+				},
+				func(reason any) {
+					if IsDebugLogEnabled() {
+						LogError(ctxTag, "on initialization ["+serviceName+"]:", reason, "stacktrace:", string(debug.Stack()))
+					} else {
+						LogError(ctxTag, "on initialization ["+serviceName+"]:", reason)
 					}
-				}()
-				ctx.initService(serviceInstance)
-			}()
+					ctx.disposeServices()
+					targetState = stateUsed
+				},
+			)
 		}
 	}
 
@@ -183,8 +188,12 @@ func (ctx *appContext) Stop() {
 					func() {
 						lifecycleAwareInstance.BeforeStop()
 					},
-					func(err error) {
-						LogError(ctxTag, "panic on ["+localServiceName+"] stopping", err)
+					func(reason any) {
+						if IsDebugLogEnabled() {
+							LogError(ctxTag, "panic on ["+localServiceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
+						} else {
+							LogError(ctxTag, "panic on ["+localServiceName+"] stopping", reason)
+						}
 					},
 				)
 			}()
@@ -242,15 +251,19 @@ func (ctx *appContext) disposeServices() {
 	for serviceName, serviceInstance := range ctx.services {
 		if ctx.states[serviceName] == stateInitialized {
 			LogDebug(ctxTag, "dispose service ["+serviceName+"]")
-			func() {
-				defer func() {
-					if err := recover(); err != nil {
-						LogError(ctxTag, "on service ["+serviceName+"] disposing:", err)
+			runWithRecover(
+				func() {
+					serviceInstance.Dispose()
+					ctx.states[serviceName] = stateUsed
+				},
+				func(reason any) {
+					if IsDebugLogEnabled() {
+						LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
+					} else {
+						LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason)
 					}
-				}()
-				serviceInstance.Dispose()
-				ctx.states[serviceName] = stateUsed
-			}()
+				},
+			)
 		}
 	}
 }
