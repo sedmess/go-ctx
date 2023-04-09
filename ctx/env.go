@@ -24,7 +24,7 @@ func init() {
 	envFileMap := make(map[string]string)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		substrs := strings.Split(scanner.Text(), "=")
+		substrs := strings.SplitN(scanner.Text(), "=", 2)
 		if len(substrs) < 2 {
 			continue
 		}
