@@ -6,7 +6,7 @@ type TimerTask struct {
 	closer chan bool
 }
 
-func (instance TimerTask) StartTimer(interval time.Duration, actionOnTimer func()) {
+func (instance *TimerTask) StartTimer(interval time.Duration, actionOnTimer func()) {
 	instance.closer = make(chan bool)
 	ticker := time.NewTicker(interval)
 	go func() {
@@ -22,7 +22,7 @@ func (instance TimerTask) StartTimer(interval time.Duration, actionOnTimer func(
 	}()
 }
 
-func (instance TimerTask) StopTimer() {
+func (instance *TimerTask) StopTimer() {
 	if instance.closer != nil {
 		instance.closer <- true
 	}

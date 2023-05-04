@@ -61,9 +61,6 @@ type timedService struct {
 }
 
 func (instance *timedService) Init(_ func(serviceName string) ctx.Service) {
-	instance.StartTimer(2*time.Second, func() {
-		ctx.LogInfo("timer", "onTimer!")
-	})
 	ctx.LogInfo(instance.Name(), "initialized")
 }
 
@@ -72,17 +69,20 @@ func (instance *timedService) Name() string {
 }
 
 func (instance *timedService) Dispose() {
-	instance.StopTimer()
 	ctx.LogInfo(instance.Name(), "disposed")
 }
 
 func (instance *timedService) AfterStart() {
 	ctx.LogInfo(timedServiceName, "afterStart")
+	instance.StartTimer(2*time.Second, func() {
+		ctx.LogInfo("timer", "onTimer!")
+	})
 }
 
 func (instance *timedService) BeforeStop() {
 	ctx.LogInfo(timedServiceName, "beforeStop")
 	time.Sleep(3 * time.Second)
+	instance.StopTimer()
 }
 
 const appLCServiceName = "app_lc_service"
