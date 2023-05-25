@@ -81,13 +81,9 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-sigCh
-		ctxInstance.Stop()
-		os.Exit(0)
-	}()
-
-	<-make(chan bool)
+	<-sigCh
+	ctxInstance.Stop()
+	os.Exit(0)
 }
 
 func (ctx *appContext) RegisterMulti(serviceInstances []Service) AppContext {
