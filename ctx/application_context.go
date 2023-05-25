@@ -44,8 +44,9 @@ type appContext struct {
 
 	state state
 
-	services map[string]Service
-	states   map[string]state
+	services  map[string]Service
+	states    map[string]state
+	initOrder []string
 }
 
 var globalLock sync.Mutex
@@ -58,6 +59,7 @@ func ApplicationContext() AppContext {
 		ctx.state = stateNotInitialized
 		ctx.services = make(map[string]Service)
 		ctx.states = make(map[string]state)
+		ctx.initOrder = make([]string, 0)
 		applicationContextInstance = &ctx
 	})
 	return applicationContextInstance
@@ -78,7 +80,7 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 	ctxInstance.Start()
 
 	sigCh := make(chan os.Signal)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigCh
 		ctxInstance.Stop()
@@ -175,31 +177,26 @@ func (ctx *appContext) Stop() {
 		return
 	}
 
-	var wg sync.WaitGroup
-	for serviceName, serviceInstance := range ctx.services {
+	for i := len(ctx.initOrder) - 1; i >= 0; i-- {
+		serviceName := ctx.initOrder[i]
+		serviceInstance := ctx.services[serviceName]
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
-		localServiceName := serviceName
 		if ok {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				LogDebug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for stop event")
-				runWithRecover(
-					func() {
-						lifecycleAwareInstance.BeforeStop()
-					},
-					func(reason any) {
-						if IsDebugLogEnabled() {
-							LogError(ctxTag, "panic on ["+localServiceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
-						} else {
-							LogError(ctxTag, "panic on ["+localServiceName+"] stopping", reason)
-						}
-					},
-				)
-			}()
+			LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
+			runWithRecover(
+				func() {
+					lifecycleAwareInstance.BeforeStop()
+				},
+				func(reason any) {
+					if IsDebugLogEnabled() {
+						LogError(ctxTag, "panic on ["+serviceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
+					} else {
+						LogError(ctxTag, "panic on ["+serviceName+"] stopping", reason)
+					}
+				},
+			)
 		}
 	}
-	wg.Wait()
 
 	ctx.state = stateUsed
 
@@ -223,6 +220,7 @@ func (ctx *appContext) GetService(serviceName string) Service {
 func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	LogDebug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
+	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
 	serviceInstance.Init(func(requestedServiceName string) Service {
 		LogDebug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
@@ -248,24 +246,30 @@ func (ctx *appContext) initService(serviceInstance Service) {
 }
 
 func (ctx *appContext) disposeServices() {
+	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
 		if ctx.states[serviceName] == stateInitialized {
+			wg.Add(1)
 			LogDebug(ctxTag, "dispose service ["+serviceName+"]")
-			runWithRecover(
-				func() {
-					serviceInstance.Dispose()
-					ctx.states[serviceName] = stateUsed
-				},
-				func(reason any) {
-					if IsDebugLogEnabled() {
-						LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
-					} else {
-						LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason)
-					}
-				},
-			)
+			go func(serviceName string) {
+				defer wg.Done()
+				runWithRecover(
+					func() {
+						serviceInstance.Dispose()
+						ctx.states[serviceName] = stateUsed
+					},
+					func(reason any) {
+						if IsDebugLogEnabled() {
+							LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
+						} else {
+							LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason)
+						}
+					},
+				)
+			}(serviceName)
 		}
 	}
+	wg.Wait()
 }
 
 func (ctx *appContext) checkState(expectedState state) {
