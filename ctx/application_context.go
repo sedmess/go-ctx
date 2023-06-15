@@ -243,6 +243,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 
 func (ctx *appContext) disposeServices() {
 	var wg sync.WaitGroup
+	var l sync.Mutex
 	for serviceName, serviceInstance := range ctx.services {
 		if ctx.states[serviceName] == stateInitialized {
 			wg.Add(1)
@@ -252,7 +253,10 @@ func (ctx *appContext) disposeServices() {
 				runWithRecover(
 					func() {
 						serviceInstance.Dispose()
+
+						l.Lock()
 						ctx.states[serviceName] = stateUsed
+						l.Unlock()
 					},
 					func(reason any) {
 						if IsDebugLogEnabled() {
