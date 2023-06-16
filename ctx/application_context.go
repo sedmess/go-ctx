@@ -245,7 +245,11 @@ func (ctx *appContext) disposeServices() {
 	var wg sync.WaitGroup
 	var l sync.Mutex
 	for serviceName, serviceInstance := range ctx.services {
-		if ctx.states[serviceName] == stateInitialized {
+		l.Lock()
+		state := ctx.states[serviceName]
+		l.Unlock()
+
+		if state == stateInitialized {
 			wg.Add(1)
 			LogDebug(ctxTag, "dispose service ["+serviceName+"]")
 			go func(serviceName string) {
