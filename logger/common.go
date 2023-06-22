@@ -5,7 +5,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 var lDebug = log.New(os.Stdout, "DEBUG", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds)
@@ -18,12 +20,13 @@ const (
 	DEBUG = iota
 	INFO
 	ERROR
+	FATAL
 )
 
 const defaultLogLevel = INFO
 
 var mu = sync.Mutex{}
-var logLevel = defaultLogLevel
+var logLevel = int32(defaultLogLevel)
 
 func init() {
 	Init(defaultLogLevel)
@@ -45,7 +48,7 @@ func Init(level int) {
 	lError.SetOutput(os.Stderr)
 	lFatal.SetOutput(os.Stderr)
 
-	logLevel = level
+	atomic.StoreInt32(&logLevel, int32(level))
 
 	mu.Unlock()
 }
@@ -53,12 +56,14 @@ func Init(level int) {
 func SetWriter(w io.Writer) {
 	mu.Lock()
 
-	if DEBUG < logLevel {
+	level := atomic.LoadInt32(&logLevel)
+
+	if DEBUG < level {
 		lDebug.SetOutput(io.Discard)
 	} else {
 		lDebug.SetOutput(u.NewSpyWriter(w, os.Stdout))
 	}
-	if INFO < logLevel {
+	if INFO < level {
 		lInfo.SetOutput(io.Discard)
 	} else {
 		lInfo.SetOutput(u.NewSpyWriter(w, os.Stdout))
@@ -69,15 +74,39 @@ func SetWriter(w io.Writer) {
 	mu.Unlock()
 }
 
+func GetLogger(level int) *log.Logger {
+	switch level {
+	case DEBUG:
+		return lDebug
+	case INFO:
+		return lInfo
+	case ERROR:
+		return lError
+	case FATAL:
+		return lFatal
+	default:
+		panic("unknown log level: " + strconv.Itoa(level))
+	}
+}
+
 func LogLevel() int {
-	mu.Lock()
-	r := logLevel
-	mu.Unlock()
-	return r
+	return int(atomic.LoadInt32(&logLevel))
+}
+
+func DebugLazy(tag string, dataProvider func() []any) {
+	if LogLevel() <= DEBUG {
+		Debug(tag, dataProvider()...)
+	}
 }
 
 func Debug(tag string, data ...any) {
 	lDebug.Println(withTags(tag, data)...)
+}
+
+func InfoLazy(tag string, dataProvider func() []any) {
+	if LogLevel() <= INFO {
+		Info(tag, dataProvider()...)
+	}
 }
 
 func Info(tag string, data ...any) {
