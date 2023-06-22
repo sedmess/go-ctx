@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/sedmess/go-ctx/ctx"
+	"github.com/sedmess/go-ctx/logger"
 	"os"
 	"time"
 )
@@ -15,7 +16,7 @@ type aService struct {
 
 func (instance *aService) Init(_ func(serviceName string) ctx.Service) {
 	instance.paramA = ctx.GetEnv(paramAName).AsIntDefault(5)
-	ctx.LogInfo(instance.Name(), "initialized")
+	logger.Info(instance.Name(), "initialized")
 }
 
 func (instance *aService) Name() string {
@@ -23,11 +24,11 @@ func (instance *aService) Name() string {
 }
 
 func (instance *aService) Dispose() {
-	ctx.LogInfo(instance.Name(), "disposed")
+	logger.Info(instance.Name(), "disposed")
 }
 
 func (instance *aService) Do() {
-	ctx.LogInfo(instance.Name(), "invoked: paramA =", instance.paramA)
+	logger.Info(instance.Name(), "invoked: paramA =", instance.paramA)
 }
 
 const bServiceName = "b_service"
@@ -38,7 +39,7 @@ type bService struct {
 
 func (instance *bService) Init(serviceProvider func(serviceName string) ctx.Service) {
 	instance.a = serviceProvider(aServiceName).(*aService)
-	ctx.LogInfo(instance.Name(), "initialized")
+	logger.Info(instance.Name(), "initialized")
 }
 
 func (instance *bService) Name() string {
@@ -46,11 +47,11 @@ func (instance *bService) Name() string {
 }
 
 func (instance *bService) Dispose() {
-	ctx.LogInfo(instance.Name(), "disposed")
+	logger.Info(instance.Name(), "disposed")
 }
 
 func (instance *bService) Do() {
-	ctx.LogInfo(instance.Name(), "invoked")
+	logger.Info(instance.Name(), "invoked")
 	instance.a.Do()
 }
 
@@ -58,10 +59,14 @@ const timedServiceName = "timed_service"
 
 type timedService struct {
 	ctx.TimerTask
+
+	l logger.Logger
 }
 
 func (instance *timedService) Init(_ func(serviceName string) ctx.Service) {
-	ctx.LogInfo(instance.Name(), "initialized")
+	instance.l = logger.New(instance)
+
+	instance.l.Info("initialized")
 }
 
 func (instance *timedService) Name() string {
@@ -69,18 +74,18 @@ func (instance *timedService) Name() string {
 }
 
 func (instance *timedService) Dispose() {
-	ctx.LogInfo(instance.Name(), "disposed")
+	instance.l.Info("disposed")
 }
 
 func (instance *timedService) AfterStart() {
-	ctx.LogInfo(timedServiceName, "afterStart")
+	instance.l.Info("afterStart")
 	instance.StartTimer(2*time.Second, func() {
-		ctx.LogInfo("timer", "onTimer!")
+		logger.Info("timer", "onTimer!")
 	})
 }
 
 func (instance *timedService) BeforeStop() {
-	ctx.LogInfo(timedServiceName, "beforeStop")
+	instance.l.Info("beforeStop")
 	time.Sleep(3 * time.Second)
 	instance.StopTimer()
 }
@@ -93,7 +98,7 @@ type appLCService struct {
 
 func (instance *appLCService) Init(serviceProvider func(serviceName string) ctx.Service) {
 	instance.b = serviceProvider(bServiceName).(*bService)
-	ctx.LogInfo(instance.Name(), "initialized")
+	logger.Info(instance.Name(), "initialized")
 }
 
 func (instance *appLCService) Name() string {
@@ -101,16 +106,16 @@ func (instance *appLCService) Name() string {
 }
 
 func (instance *appLCService) Dispose() {
-	ctx.LogInfo(instance.Name(), "disposed")
+	logger.Info(instance.Name(), "disposed")
 }
 
 func (instance *appLCService) AfterStart() {
-	ctx.LogInfo(appLCServiceName, "app started")
+	logger.Info(appLCServiceName, "app started")
 	instance.b.Do()
 }
 
 func (instance *appLCService) BeforeStop() {
-	ctx.LogInfo(appLCServiceName, "app stopped")
+	logger.Info(appLCServiceName, "app stopped")
 }
 
 const connAServiceName = "conn_a_service"
@@ -138,7 +143,7 @@ func (instance *connAService) Dispose() {
 }
 
 func (instance *connAService) OnMessage(msg string) {
-	ctx.LogInfo(connAServiceName, "msg: "+msg)
+	logger.Info(connAServiceName, "msg: "+msg)
 	instance.b.Do()
 }
 
@@ -165,7 +170,7 @@ func (instance *connBService) Dispose() {
 }
 
 func (instance *connBService) OnMessage(msg string) {
-	ctx.LogInfo(connBServiceName, "msg: "+msg)
+	logger.Info(connBServiceName, "msg: "+msg)
 	instance.Send(msg + "b")
 }
 

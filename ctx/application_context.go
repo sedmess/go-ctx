@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"github.com/sedmess/go-ctx/logger"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -102,11 +103,11 @@ func (ctx *appContext) Register(serviceInstance Service) AppContext {
 
 	serviceName := serviceInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
-		LogFatal(ctxTag, "service name duplication: ["+serviceName+"]")
+		logger.Fatal(ctxTag, "service name duplication: ["+serviceName+"]")
 	}
 	ctx.services[serviceName] = serviceInstance
 	ctx.states[serviceName] = stateNotInitialized
-	LogDebug(ctxTag, "registered service ["+serviceName+"]")
+	logger.Debug(ctxTag, "registered service ["+serviceName+"]")
 
 	return ctx
 }
@@ -129,11 +130,8 @@ func (ctx *appContext) Start() {
 					ctx.initService(serviceInstance)
 				},
 				func(reason any) {
-					if IsDebugLogEnabled() {
-						LogError(ctxTag, "on initialization ["+serviceName+"]:", reason, "stacktrace:", string(debug.Stack()))
-					} else {
-						LogError(ctxTag, "on initialization ["+serviceName+"]:", reason)
-					}
+					logger.Error(ctxTag, "on initialization ["+serviceName+"]:", reason, "stacktrace:", string(debug.Stack()))
+
 					ctx.disposeServices()
 					targetState = stateUsed
 				},
@@ -142,10 +140,10 @@ func (ctx *appContext) Start() {
 	}
 
 	if targetState == stateUsed {
-		LogFatal(ctxTag, "can't start context, see log above")
+		logger.Fatal(ctxTag, "can't start context, see log above")
 	}
 
-	LogInfo(ctxTag, "started")
+	logger.Info(ctxTag, "started")
 
 	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
@@ -155,7 +153,7 @@ func (ctx *appContext) Start() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				LogDebug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for start event")
+				logger.Debug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for start event")
 				lifecycleAwareInstance.AfterStart()
 			}()
 		}
@@ -178,17 +176,13 @@ func (ctx *appContext) Stop() {
 		serviceInstance := ctx.services[serviceName]
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
-			LogDebug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
+			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
 			runWithRecover(
 				func() {
 					lifecycleAwareInstance.BeforeStop()
 				},
 				func(reason any) {
-					if IsDebugLogEnabled() {
-						LogError(ctxTag, "panic on ["+serviceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
-					} else {
-						LogError(ctxTag, "panic on ["+serviceName+"] stopping", reason)
-					}
+					logger.Error(ctxTag, "panic on ["+serviceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
 				},
 			)
 		}
@@ -201,7 +195,7 @@ func (ctx *appContext) Stop() {
 	ctx.services = nil
 	ctx.states = nil
 
-	LogInfo(ctxTag, "stopped")
+	logger.Info(ctxTag, "stopped")
 }
 
 func (ctx *appContext) GetService(serviceName string) Service {
@@ -215,10 +209,10 @@ func (ctx *appContext) GetService(serviceName string) Service {
 
 func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
-	LogDebug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
+	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
 	serviceInstance.Init(func(requestedServiceName string) Service {
-		LogDebug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
+		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
 			if serviceState == stateInitialized {
@@ -233,11 +227,11 @@ func (ctx *appContext) initService(serviceInstance Service) {
 				panic("unexpected error")
 			}
 		} else {
-			LogFatal(ctxTag, "service ["+requestedServiceName+"] not found")
+			logger.Fatal(ctxTag, "service ["+requestedServiceName+"] not found")
 			return nil
 		}
 	})
-	LogDebug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
+	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
 }
 
@@ -251,7 +245,7 @@ func (ctx *appContext) disposeServices() {
 
 		if state == stateInitialized {
 			wg.Add(1)
-			LogDebug(ctxTag, "dispose service ["+serviceName+"]")
+			logger.Debug(ctxTag, "dispose service ["+serviceName+"]")
 			go func(serviceName string) {
 				defer wg.Done()
 				runWithRecover(
@@ -263,11 +257,7 @@ func (ctx *appContext) disposeServices() {
 						l.Unlock()
 					},
 					func(reason any) {
-						if IsDebugLogEnabled() {
-							LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
-						} else {
-							LogError(ctxTag, "on service ["+serviceName+"] disposing:", reason)
-						}
+						logger.Error(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
 					},
 				)
 			}(serviceName)
@@ -278,6 +268,6 @@ func (ctx *appContext) disposeServices() {
 
 func (ctx *appContext) checkState(expectedState state) {
 	if ctx.state != expectedState {
-		LogFatal(ctxTag, "wrong state: current ("+ctx.state.name+"), expected ("+expectedState.name+")")
+		logger.Fatal(ctxTag, "wrong state: current ("+ctx.state.name+"), expected ("+expectedState.name+")")
 	}
 }

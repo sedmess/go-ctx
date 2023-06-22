@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"github.com/sedmess/go-ctx/logger"
 	"reflect"
 	"strconv"
 	"strings"
@@ -73,7 +74,7 @@ func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 						onMessage(msg.(In))
 					},
 					func(reason any) {
-						LogError(connector.name, "during onMessage:", reason)
+						logger.Error(connector.name, "during onMessage:", reason)
 						panic(reason)
 					},
 				)
@@ -128,7 +129,7 @@ func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceNam
 
 		service1.ingoing(service2.outgoing())
 		service2.ingoing(service1.outgoing())
-		LogDebug(instance.name, "connected services:", srvsStr)
+		logger.Debug(instance.name, "connected services:", srvsStr)
 	}
 }
 

@@ -1,46 +1,43 @@
 package ctx
 
-import "log"
+import (
+	"github.com/sedmess/go-ctx/logger"
+)
 
 const debugLoggingParam = "DEBUG_LOG_LEVEL"
 
-var debugEnabled = false
-
 func init() {
-	debugEnabled = GetEnv(debugLoggingParam).AsBoolDefault(false)
+	if GetEnv(debugLoggingParam).AsBoolDefault(false) {
+		logger.Init(logger.DEBUG)
+	}
 }
 
-//goland:noinspection GoUnusedExportedFunction
+// IsDebugLogEnabled
+// Deprecated: use logger.Configure
 func IsDebugLogEnabled() bool {
-	return debugEnabled
+	return logger.LogLevel() <= logger.DEBUG
 }
 
+// LogDebug
+// Deprecated: use logger.Debug
 func LogDebug(tag string, data ...any) {
-	if debugEnabled {
-		log.Println(withTags(tag, "DEBUG", data)...)
-	}
+	logger.Debug(tag, data...)
 }
 
+// LogInfo
+// Deprecated: use logger.Debug
 func LogInfo(tag string, data ...any) {
-	log.Println(withTags(tag, "INFO", data)...)
+	logger.Info(tag, data...)
 }
 
+// LogError
+// Deprecated: use logger.Debug
 func LogError(tag string, data ...any) {
-	log.Println(withTags(tag, "ERROR", data)...)
+	logger.Error(tag, data...)
 }
 
+// LogFatal
+// Deprecated: use logger.Debug
 func LogFatal(tag string, data ...any) {
-	log.Fatalln(withTags(tag, "FATAL", data)...)
-}
-
-func withTags(tag string, level string, data []any) []any {
-	if data == nil || len(data) == 0 {
-		data = make([]any, 2)
-	} else {
-		data = append(data, nil, nil)
-		copy(data[2:], data)
-	}
-	data[0] = "[" + tag + "]"
-	data[1] = level + ":"
-	return data
+	logger.Fatal(tag, data...)
 }
