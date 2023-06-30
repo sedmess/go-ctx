@@ -174,6 +174,51 @@ func (instance *connBService) OnMessage(msg string) {
 	instance.Send(msg + "b")
 }
 
+const multiInstanceServiceNamePrefix = "multi_instance_service_"
+
+type multiInstanceService struct {
+	name string
+}
+
+func (instance *multiInstanceService) Init(func(serviceName string) ctx.Service) {
+	logger.Info(multiInstanceServiceNamePrefix+instance.name, "init")
+}
+
+func (instance *multiInstanceService) Name() string {
+	return instance.name
+}
+
+func (instance *multiInstanceService) Dispose() {
+	logger.Info(multiInstanceServiceNamePrefix+instance.name, "dispose")
+}
+
+const multiInstanceGetServiceName = "multi_instance_get_service"
+
+type multiInstanceGetService struct {
+	m1 *multiInstanceService
+	m2 *multiInstanceService
+}
+
+func (instance *multiInstanceGetService) Init(serviceProvider func(serviceName string) ctx.Service) {
+	instance.m1 = serviceProvider(multiInstanceServiceNamePrefix + "1").(*multiInstanceService)
+	instance.m2 = serviceProvider(multiInstanceServiceNamePrefix + "2").(*multiInstanceService)
+}
+
+func (instance *multiInstanceGetService) Name() string {
+	return multiInstanceGetServiceName
+}
+
+func (instance *multiInstanceGetService) AfterStart() {
+	logger.Info(multiInstanceGetServiceName, "deps m1:", instance.m1.Name())
+	logger.Info(multiInstanceGetServiceName, "deps m2:", instance.m2.Name())
+}
+
+func (instance *multiInstanceGetService) BeforeStop() {
+}
+
+func (instance *multiInstanceGetService) Dispose() {
+}
+
 func main() {
 	_ = os.Setenv("map", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -188,7 +233,7 @@ func main() {
 
 	ctx.StartContextualizedApplication(
 		[]ctx.Service{
-			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(),
+			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{multiInstanceServiceNamePrefix + "1"}, &multiInstanceService{multiInstanceServiceNamePrefix + "2"}, &multiInstanceGetService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
