@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/u"
 	"os"
 	"time"
 )
@@ -14,7 +15,7 @@ type aService struct {
 	paramA int
 }
 
-func (instance *aService) Init(_ func(serviceName string) ctx.Service) {
+func (instance *aService) Init(_ ctx.ServiceProvider) {
 	instance.paramA = ctx.GetEnv(paramAName).AsIntDefault(5)
 	logger.Info(instance.Name(), "initialized")
 }
@@ -37,7 +38,7 @@ type bService struct {
 	a *aService
 }
 
-func (instance *bService) Init(serviceProvider func(serviceName string) ctx.Service) {
+func (instance *bService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.a = serviceProvider(aServiceName).(*aService)
 	logger.Info(instance.Name(), "initialized")
 }
@@ -63,7 +64,7 @@ type timedService struct {
 	l logger.Logger
 }
 
-func (instance *timedService) Init(_ func(serviceName string) ctx.Service) {
+func (instance *timedService) Init(_ ctx.ServiceProvider) {
 	instance.l = logger.New(instance)
 
 	instance.l.Info("initialized")
@@ -96,7 +97,7 @@ type appLCService struct {
 	b *bService
 }
 
-func (instance *appLCService) Init(serviceProvider func(serviceName string) ctx.Service) {
+func (instance *appLCService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.b = serviceProvider(bServiceName).(*bService)
 	logger.Info(instance.Name(), "initialized")
 }
@@ -131,7 +132,7 @@ func newConnAService() *connAService {
 	return service
 }
 
-func (instance *connAService) Init(serviceProvider func(msg string) ctx.Service) {
+func (instance *connAService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.b = serviceProvider(bServiceName).(*bService)
 }
 
@@ -159,7 +160,7 @@ func newConnBService() *connBService {
 	return service
 }
 
-func (instance *connBService) Init(_ func(msg string) ctx.Service) {
+func (instance *connBService) Init(_ ctx.ServiceProvider) {
 }
 
 func (instance *connBService) Name() string {
@@ -180,7 +181,7 @@ type multiInstanceService struct {
 	name string
 }
 
-func (instance *multiInstanceService) Init(func(serviceName string) ctx.Service) {
+func (instance *multiInstanceService) Init(_ ctx.ServiceProvider) {
 	logger.Info(multiInstanceServiceNamePrefix+instance.name, "init")
 }
 
@@ -199,7 +200,7 @@ type multiInstanceGetService struct {
 	m2 *multiInstanceService
 }
 
-func (instance *multiInstanceGetService) Init(serviceProvider func(serviceName string) ctx.Service) {
+func (instance *multiInstanceGetService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.m1 = serviceProvider(multiInstanceServiceNamePrefix + "1").(*multiInstanceService)
 	instance.m2 = serviceProvider(multiInstanceServiceNamePrefix + "2").(*multiInstanceService)
 }
@@ -219,6 +220,42 @@ func (instance *multiInstanceGetService) BeforeStop() {
 func (instance *multiInstanceGetService) Dispose() {
 }
 
+type ReflectiveSingletonService interface {
+	Do() string
+}
+
+type reflectiveSingletonServiceImpl struct {
+	ReflectiveSingletonService
+	L logger.Logger `logger:"singleton"`
+	A *aService     `inject:"a_service"`
+}
+
+func (instance *reflectiveSingletonServiceImpl) Name() string {
+	return u.GetInterfaceName[ReflectiveSingletonService]()
+}
+
+func (instance *reflectiveSingletonServiceImpl) AfterStart() {
+	instance.A.Do()
+	instance.L.Info("A =", instance.A.Name())
+}
+
+func (instance *reflectiveSingletonServiceImpl) BeforeStop() {
+	instance.L.Info("stop")
+}
+
+func (instance *reflectiveSingletonServiceImpl) Do() string {
+	return "done"
+}
+
+type reflectiveSingletonService2 struct {
+	L logger.Logger              `logger:""`
+	D ReflectiveSingletonService `inject:""`
+}
+
+func (instance *reflectiveSingletonService2) Do() {
+	instance.L.Info(instance.D.Do())
+}
+
 func main() {
 	_ = os.Setenv("map", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -231,9 +268,17 @@ func main() {
 		connAService.Send("a")
 	}()
 
+	r2 := &reflectiveSingletonService2{}
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		r2.Do()
+	}()
+
 	ctx.StartContextualizedApplication(
-		[]ctx.Service{
+		[]any{
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{multiInstanceServiceNamePrefix + "1"}, &multiInstanceService{multiInstanceServiceNamePrefix + "2"}, &multiInstanceGetService{},
+			&reflectiveSingletonServiceImpl{}, r2,
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

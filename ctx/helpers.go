@@ -1,6 +1,6 @@
 package ctx
 
-func ServiceArray(srvs ...Service) []Service {
+func ServiceArray(srvs ...any) []any {
 	return srvs
 }
 

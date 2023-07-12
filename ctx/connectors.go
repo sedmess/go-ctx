@@ -96,7 +96,7 @@ type mutualConnectableConnector struct {
 	pairs [][]string
 }
 
-func ConnectServices(services ...string) Service {
+func ConnectServices(services ...string) any {
 	if len(services)%2 == 1 {
 		panic("wrong arguments")
 	}
@@ -110,7 +110,7 @@ func ConnectServices(services ...string) Service {
 	}
 }
 
-func (instance *mutualConnectableConnector) Init(serviceProvider func(serviceName string) Service) {
+func (instance *mutualConnectableConnector) Init(serviceProvider ServiceProvider) {
 	for _, pair := range instance.pairs {
 		service1, ok := serviceProvider(pair[0]).(connectable)
 		if !ok {

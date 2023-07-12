@@ -38,6 +38,10 @@ type EnvValue struct {
 	value string
 }
 
+func (instance *EnvValue) Name() string {
+	return instance.name
+}
+
 func (instance *EnvValue) IsPresent() bool {
 	return len(instance.value) != 0
 }

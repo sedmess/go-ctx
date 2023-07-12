@@ -16,7 +16,11 @@ type Loggable interface {
 }
 
 func New(loggable Loggable) Logger {
-	return &logger{tag: loggable.Name()}
+	return NewWithTag(loggable.Name())
+}
+
+func NewWithTag(tag string) Logger {
+	return &logger{tag: tag}
 }
 
 func (instance *logger) Debug(msg ...any) {

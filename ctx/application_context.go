@@ -9,18 +9,6 @@ import (
 	"syscall"
 )
 
-type Service interface {
-	Init(serviceProvider func(serviceName string) Service)
-	Name() string
-	Dispose()
-}
-
-type LifecycleAware interface {
-	Service
-	AfterStart()
-	BeforeStop()
-}
-
 type state struct {
 	name string
 	code int
@@ -34,10 +22,11 @@ var stateUsed = state{code: -1, name: "used"}
 const ctxTag = "CTX"
 
 type AppContext interface {
-	Register(serviceInstance Service) AppContext
+	Register(serviceInstance any) AppContext
+	RegisterMulti(serviceInstances []any) AppContext
 	Start()
 	Stop()
-	GetService(serviceName string) Service
+	GetService(serviceName string) any
 }
 
 type appContext struct {
@@ -66,7 +55,7 @@ func ApplicationContext() AppContext {
 	return applicationContextInstance
 }
 
-func StartContextualizedApplication(packageServices ...[]Service) {
+func StartContextualizedApplication(packageServices ...[]any) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -87,7 +76,7 @@ func StartContextualizedApplication(packageServices ...[]Service) {
 	os.Exit(0)
 }
 
-func (ctx *appContext) RegisterMulti(serviceInstances []Service) AppContext {
+func (ctx *appContext) RegisterMulti(serviceInstances []any) AppContext {
 	for _, serviceInstance := range serviceInstances {
 		ctx.Register(serviceInstance)
 	}
@@ -95,17 +84,22 @@ func (ctx *appContext) RegisterMulti(serviceInstances []Service) AppContext {
 	return ctx
 }
 
-func (ctx *appContext) Register(serviceInstance Service) AppContext {
+func (ctx *appContext) Register(serviceInstance any) AppContext {
 	ctx.Lock()
 	defer ctx.Unlock()
 
 	ctx.checkState(stateNotInitialized)
 
-	serviceName := serviceInstance.Name()
+	sInstance, ok := serviceInstance.(Service)
+	if !ok {
+		sInstance = newReflectiveServiceWrapper(serviceInstance)
+	}
+
+	serviceName := sInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
 		logger.Fatal(ctxTag, "service name duplication: ["+serviceName+"]")
 	}
-	ctx.services[serviceName] = serviceInstance
+	ctx.services[serviceName] = sInstance
 	ctx.states[serviceName] = stateNotInitialized
 	logger.Debug(ctxTag, "registered service ["+serviceName+"]")
 
@@ -198,7 +192,7 @@ func (ctx *appContext) Stop() {
 	logger.Info(ctxTag, "stopped")
 }
 
-func (ctx *appContext) GetService(serviceName string) Service {
+func (ctx *appContext) GetService(serviceName string) any {
 	ctx.RLock()
 	defer ctx.RUnlock()
 
@@ -211,18 +205,18 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
-	serviceInstance.Init(func(requestedServiceName string) Service {
+	serviceInstance.Init(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
 			if serviceState == stateInitialized {
-				return requestedServiceInstance
+				return unwrap(requestedServiceInstance)
 			} else if serviceState == stateInitialization {
 				panic("CTX: ERR: cyclic dependency between [" + serviceInstance.Name() + "] and [" + requestedServiceName + "]")
 				return nil
 			} else if serviceState == stateNotInitialized {
 				ctx.initService(requestedServiceInstance)
-				return requestedServiceInstance
+				return unwrap(requestedServiceInstance)
 			} else {
 				panic("unexpected error")
 			}
