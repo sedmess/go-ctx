@@ -25,19 +25,19 @@ func LogDebug(tag string, data ...any) {
 }
 
 // LogInfo
-// Deprecated: use logger.Debug
+// Deprecated: use logger.Info
 func LogInfo(tag string, data ...any) {
 	logger.Info(tag, data...)
 }
 
 // LogError
-// Deprecated: use logger.Debug
+// Deprecated: use logger.Error
 func LogError(tag string, data ...any) {
 	logger.Error(tag, data...)
 }
 
 // LogFatal
-// Deprecated: use logger.Debug
-func LogFatal(tag string, data ...any) {
+// Deprecated: use logger.Fatal
+func LogFatal(tag string, data ...any) { //todo
 	logger.Fatal(tag, data...)
 }

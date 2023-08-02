@@ -9,7 +9,7 @@ type TimerTask struct {
 func (instance *TimerTask) StartTimer(interval time.Duration, actionOnTimer func()) {
 	instance.closer = make(chan bool)
 	ticker := time.NewTicker(interval)
-	go func() {
+	Run(func() {
 		for {
 			select {
 			case <-instance.closer:
@@ -19,7 +19,7 @@ func (instance *TimerTask) StartTimer(interval time.Duration, actionOnTimer func
 				actionOnTimer()
 			}
 		}
-	}()
+	})
 }
 
 func (instance *TimerTask) StopTimer() {

@@ -21,11 +21,10 @@ var stateUsed = state{code: -1, name: "used"}
 
 const ctxTag = "CTX"
 
+var globalLock sync.Mutex
+var ctx *appContext
+
 type AppContext interface {
-	Register(serviceInstance any) AppContext
-	RegisterMulti(serviceInstances []any) AppContext
-	Start()
-	Stop()
 	GetService(serviceName string) any
 }
 
@@ -37,54 +36,93 @@ type appContext struct {
 	services  map[string]Service
 	states    map[string]state
 	initOrder []string
-}
 
-var globalLock sync.Mutex
-var applicationContextOnce sync.Once
-var applicationContextInstance AppContext
-
-func ApplicationContext() AppContext {
-	applicationContextOnce.Do(func() {
-		ctx := appContext{}
-		ctx.state = stateNotInitialized
-		ctx.services = make(map[string]Service)
-		ctx.states = make(map[string]state)
-		ctx.initOrder = make([]string, 0)
-		applicationContextInstance = &ctx
-	})
-	return applicationContextInstance
+	eventBus chan event
 }
 
 func StartContextualizedApplication(packageServices ...[]any) {
-	globalLock.Lock()
-	defer globalLock.Unlock()
+	defer func() {
+		globalLock.Lock()
+		defer globalLock.Unlock()
 
-	ctxInstance := ApplicationContext()
-	for _, services := range packageServices {
-		for _, service := range services {
-			ctxInstance.Register(service)
+		ctx = nil
+	}()
+
+	ctxInstance := func() *appContext {
+		globalLock.Lock()
+		defer globalLock.Unlock()
+
+		ctxInstance := newApplicationContext()
+		for _, services := range packageServices {
+			for _, service := range services {
+				ctxInstance.register(service)
+			}
 		}
-	}
 
-	defer ctxInstance.Stop()
-	ctxInstance.Start()
+		ctxInstance.start()
+
+		ctx = ctxInstance
+
+		return ctxInstance
+	}()
 
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	<-sigCh
-	ctxInstance.Stop()
-	os.Exit(0)
+	select {
+	case <-sigCh:
+		ctxInstance.stop()
+		return
+	case e := <-ctxInstance.eventBus:
+		switch e.kind {
+		case ePanic:
+			ctxInstance.stop()
+			panicPayload := e.payload.(panicPayload)
+			logger.Fatal(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+		}
+	}
 }
 
-func (ctx *appContext) RegisterMulti(serviceInstances []any) AppContext {
+func GetService(serviceName string) any {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	if ctx != nil {
+		return ctx.GetService(serviceName)
+	} else {
+		panic("no active context")
+	}
+}
+
+func sendEvent(e event) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	if ctx != nil {
+		ctx.sendEvent(e)
+	} else {
+		panic("no active context")
+	}
+}
+
+func newApplicationContext() *appContext {
+	ctx := appContext{}
+	ctx.state = stateNotInitialized
+	ctx.services = make(map[string]Service)
+	ctx.states = make(map[string]state)
+	ctx.initOrder = make([]string, 0)
+	ctx.eventBus = make(chan event)
+	return &ctx
+}
+
+func (ctx *appContext) registerMulti(serviceInstances []any) AppContext {
 	for _, serviceInstance := range serviceInstances {
-		ctx.Register(serviceInstance)
+		ctx.register(serviceInstance)
 	}
 
 	return ctx
 }
 
-func (ctx *appContext) Register(serviceInstance any) AppContext {
+func (ctx *appContext) register(serviceInstance any) AppContext {
 	ctx.Lock()
 	defer ctx.Unlock()
 
@@ -106,7 +144,7 @@ func (ctx *appContext) Register(serviceInstance any) AppContext {
 	return ctx
 }
 
-func (ctx *appContext) Start() {
+func (ctx *appContext) start() {
 	ctx.Lock()
 	defer ctx.Unlock()
 
@@ -142,14 +180,18 @@ func (ctx *appContext) Start() {
 	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
-		localServiceName := serviceName
 		if ok {
 			wg.Add(1)
-			go func() {
+			go func(serviceName string) {
 				defer wg.Done()
-				logger.Debug(ctxTag, "["+localServiceName+"] is livecycle-aware, notify it for start event")
-				lifecycleAwareInstance.AfterStart()
-			}()
+				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
+				runWithRecover(
+					lifecycleAwareInstance.AfterStart,
+					func(reason any) {
+						logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", reason, "stacktrace:", string(debug.Stack()))
+					},
+				)
+			}(serviceName)
 		}
 	}
 	wg.Wait()
@@ -157,7 +199,7 @@ func (ctx *appContext) Start() {
 	ctx.state = targetState
 }
 
-func (ctx *appContext) Stop() {
+func (ctx *appContext) stop() {
 	ctx.Lock()
 	defer ctx.Unlock()
 
@@ -264,4 +306,8 @@ func (ctx *appContext) checkState(expectedState state) {
 	if ctx.state != expectedState {
 		logger.Fatal(ctxTag, "wrong state: current ("+ctx.state.name+"), expected ("+expectedState.name+")")
 	}
+}
+
+func (ctx *appContext) sendEvent(e event) {
+	ctx.eventBus <- e
 }

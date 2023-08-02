@@ -256,6 +256,19 @@ func (instance *reflectiveSingletonService2) Do() {
 	instance.L.Info(instance.D.Do())
 }
 
+type panicService struct {
+}
+
+func (p *panicService) AfterStart() {
+	ctx.Run(func() {
+		<-time.After(60 * time.Second)
+		panic("for no particular reason")
+	})
+}
+
+func (p *panicService) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("map", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -279,6 +292,7 @@ func main() {
 		[]any{
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{multiInstanceServiceNamePrefix + "1"}, &multiInstanceService{multiInstanceServiceNamePrefix + "2"}, &multiInstanceGetService{},
 			&reflectiveSingletonServiceImpl{}, r2,
+			&panicService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

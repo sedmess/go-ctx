@@ -65,7 +65,7 @@ func (connector *ServiceConnector[In, Out]) outType() reflect.Type {
 
 func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 	connector.qCh = make(chan bool)
-	go func() {
+	Run(func() {
 		for {
 			select {
 			case msg := <-connector.inCh:
@@ -82,7 +82,7 @@ func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 				break
 			}
 		}
-	}()
+	})
 }
 
 func (connector *ServiceConnector[In, Out]) stopListening() {
