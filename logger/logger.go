@@ -2,7 +2,9 @@ package logger
 
 type Logger interface {
 	Debug(msg ...any)
+	DebugLazy(dataProvider func() []any)
 	Info(msg ...any)
+	InfoLazy(dataProvider func() []any)
 	Error(msg ...any)
 	Fatal(msg ...any)
 }
