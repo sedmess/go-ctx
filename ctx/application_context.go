@@ -247,7 +247,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
-	serviceInstance.Init(func(requestedServiceName string) any {
+	serviceInstance.Init(serviceProviderImpl(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
@@ -266,7 +266,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 			logger.Fatal(ctxTag, "service ["+requestedServiceName+"] not found")
 			return nil
 		}
-	})
+	}))
 	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
 }

@@ -40,6 +40,9 @@ func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	for i := 0; i < w.sType.NumField(); i++ {
 		sField := w.sType.Field(i)
+		if !sField.IsExported() {
+			continue
+		}
 
 		value, ok := sField.Tag.Lookup(tagLogger)
 		if ok {
@@ -61,11 +64,11 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 		var service any
 		if value != "" {
 			logger.Debug(w.name, "lookup dependency", value, "for field", sField.Name)
-			service = serviceProvider(value)
+			service = serviceProvider.ByName(value)
 		} else {
 			dName := sField.Type.String()
 			logger.Debug(w.name, "lookup dependency", dName, "for field", sField.Name)
-			service = serviceProvider(dName)
+			service = serviceProvider.ByName(dName)
 		}
 		w.sValue.Field(i).Set(reflect.ValueOf(service))
 	}

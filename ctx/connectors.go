@@ -112,11 +112,11 @@ func ConnectServices(services ...string) any {
 
 func (instance *mutualConnectableConnector) Init(serviceProvider ServiceProvider) {
 	for _, pair := range instance.pairs {
-		service1, ok := serviceProvider(pair[0]).(connectable)
+		service1, ok := serviceProvider.ByName(pair[0]).(connectable)
 		if !ok {
 			panic(pair[0] + " can't be connected")
 		}
-		service2, ok := serviceProvider(pair[1]).(connectable)
+		service2, ok := serviceProvider.ByName(pair[1]).(connectable)
 		if !ok {
 			panic(pair[1] + " can't be connected")
 		}

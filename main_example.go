@@ -39,7 +39,7 @@ type bService struct {
 }
 
 func (instance *bService) Init(serviceProvider ctx.ServiceProvider) {
-	instance.a = serviceProvider(aServiceName).(*aService)
+	instance.a = serviceProvider.ByName(aServiceName).(*aService)
 	logger.Info(instance.Name(), "initialized")
 }
 
@@ -98,7 +98,7 @@ type appLCService struct {
 }
 
 func (instance *appLCService) Init(serviceProvider ctx.ServiceProvider) {
-	instance.b = serviceProvider(bServiceName).(*bService)
+	instance.b = serviceProvider.ByName(bServiceName).(*bService)
 	logger.Info(instance.Name(), "initialized")
 }
 
@@ -133,7 +133,7 @@ func newConnAService() *connAService {
 }
 
 func (instance *connAService) Init(serviceProvider ctx.ServiceProvider) {
-	instance.b = serviceProvider(bServiceName).(*bService)
+	instance.b = serviceProvider.ByName(bServiceName).(*bService)
 }
 
 func (instance *connAService) Name() string {
@@ -201,8 +201,8 @@ type multiInstanceGetService struct {
 }
 
 func (instance *multiInstanceGetService) Init(serviceProvider ctx.ServiceProvider) {
-	instance.m1 = serviceProvider(multiInstanceServiceNamePrefix + "1").(*multiInstanceService)
-	instance.m2 = serviceProvider(multiInstanceServiceNamePrefix + "2").(*multiInstanceService)
+	instance.m1 = serviceProvider.ByName(multiInstanceServiceNamePrefix + "1").(*multiInstanceService)
+	instance.m2 = serviceProvider.ByName(multiInstanceServiceNamePrefix + "2").(*multiInstanceService)
 }
 
 func (instance *multiInstanceGetService) Name() string {
@@ -269,6 +269,31 @@ func (p *panicService) AfterStart() {
 func (p *panicService) BeforeStop() {
 }
 
+type anonymousService struct {
+	L logger.Logger `logger:""`
+}
+
+func (as *anonymousService) Do() {
+	as.L.Info("do")
+}
+
+type asConsumerService struct {
+	AnonymousService *anonymousService `inject:""`
+	L                logger.Logger     `logger:""`
+}
+
+func (a *asConsumerService) Init(ctx.ServiceProvider) {
+	a.L.Info("side actions")
+	//a.AnonymousService = serviceProvider.ByType((*anonymousService)(nil)).(*anonymousService)
+}
+
+func (a *asConsumerService) AfterStart() {
+	a.AnonymousService.Do()
+}
+
+func (a *asConsumerService) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("map", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -293,6 +318,7 @@ func main() {
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{multiInstanceServiceNamePrefix + "1"}, &multiInstanceService{multiInstanceServiceNamePrefix + "2"}, &multiInstanceGetService{},
 			&reflectiveSingletonServiceImpl{}, r2,
 			&panicService{},
+			&anonymousService{}, &asConsumerService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
