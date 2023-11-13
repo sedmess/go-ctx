@@ -178,11 +178,12 @@ func (instance *connBService) OnMessage(msg string) {
 const multiInstanceServiceNamePrefix = "multi_instance_service_"
 
 type multiInstanceService struct {
-	name string
+	name   string
+	custom string
 }
 
 func (instance *multiInstanceService) Init(_ ctx.ServiceProvider) {
-	logger.Info(multiInstanceServiceNamePrefix+instance.name, "init")
+	logger.Info(multiInstanceServiceNamePrefix+instance.name, "init:", ctx.GetEnvCustom(instance.custom, "MIS"))
 }
 
 func (instance *multiInstanceService) Name() string {
@@ -273,8 +274,8 @@ type anonymousService struct {
 	L logger.Logger `logger:""`
 }
 
-func (as *anonymousService) Do() {
-	as.L.Info("do")
+func (as *anonymousService) Do(who string) {
+	as.L.Info("do for", who)
 }
 
 type asConsumerService struct {
@@ -288,17 +289,20 @@ func (a *asConsumerService) Init(ctx.ServiceProvider) {
 }
 
 func (a *asConsumerService) AfterStart() {
-	a.AnonymousService.Do()
+	a.AnonymousService.Do("asConsumerService")
 }
 
 func (a *asConsumerService) BeforeStop() {
 }
 
 func main() {
-	_ = os.Setenv("map", "key1=value1|key2=123")
+	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
 	println(envMap["key1"].AsString())
 	println(envMap["key2"].AsInt())
+
+	_ = os.Setenv("MIS", "mis_default")
+	_ = os.Setenv("I1_MIS", "mis_i1")
 
 	connAService := newConnAService()
 	go func() {
@@ -315,7 +319,7 @@ func main() {
 
 	ctx.StartContextualizedApplication(
 		[]any{
-			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{multiInstanceServiceNamePrefix + "1"}, &multiInstanceService{multiInstanceServiceNamePrefix + "2"}, &multiInstanceGetService{},
+			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{name: multiInstanceServiceNamePrefix + "1", custom: "I1"}, &multiInstanceService{name: multiInstanceServiceNamePrefix + "2", custom: "I2"}, &multiInstanceGetService{},
 			&reflectiveSingletonServiceImpl{}, r2,
 			&panicService{},
 			&anonymousService{}, &asConsumerService{},

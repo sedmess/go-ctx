@@ -2,6 +2,7 @@ package ctx
 
 import (
 	"bufio"
+	"github.com/sedmess/go-ctx/logger"
 	"os"
 	"strconv"
 	"strings"
@@ -118,6 +119,52 @@ func (instance *EnvValue) AsIntArrayDefault() []int {
 	}
 }
 
+func (instance *EnvValue) AsInt64() int64 {
+	instance.fatalIfNotExists()
+	if a, err := strconv.ParseInt(instance.value, 10, 64); err != nil {
+		panic(instance.name + ": can't convert to int64: " + instance.value)
+		return 0
+	} else {
+		return a
+	}
+}
+
+func (instance *EnvValue) AsInt64Default(def int64) int64 {
+	if instance.IsPresent() {
+		if a, err := strconv.ParseInt(instance.value, 10, 64); err != nil {
+			panic(instance.name + ": can't convert to int64: " + instance.value)
+			return 0
+		} else {
+			return a
+		}
+		return 0
+	} else {
+		return def
+	}
+}
+
+func (instance *EnvValue) AsInt64Array() []int64 {
+	instance.fatalIfNotExists()
+	strs := instance.AsStringArray()
+	ints := make([]int64, len(strs))
+	for i := range strs {
+		if a, err := strconv.ParseInt(strs[i], 10, 64); err != nil {
+			panic(instance.name + ": can't convert to int64: " + strs[i])
+		} else {
+			ints[i] = a
+		}
+	}
+	return ints
+}
+
+func (instance *EnvValue) AsInt64ArrayDefault() []int64 {
+	if instance.IsPresent() {
+		return instance.AsInt64Array()
+	} else {
+		return make([]int64, 0)
+	}
+}
+
 func (instance *EnvValue) AsBool() bool {
 	instance.fatalIfNotExists()
 	if boolValue, err := strconv.ParseBool(instance.value); err != nil {
@@ -158,6 +205,14 @@ func (instance *EnvValue) fatalIfNotExists() {
 	}
 }
 
+func (instance *EnvValue) String() string {
+	if instance.IsPresent() {
+		return "EnvValue: (" + instance.name + ": " + instance.value + ")"
+	} else {
+		return "EnvValue: (" + instance.name + ": {not set}" + ")"
+	}
+}
+
 func GetEnv(name string) *EnvValue {
 	var value string
 	value = os.Getenv(name)
@@ -165,4 +220,26 @@ func GetEnv(name string) *EnvValue {
 		value = properties[name]
 	}
 	return &EnvValue{name: name, value: value}
+}
+
+func GetEnvCustom(custom string, name string) *EnvValue {
+	return getEnvCustom(custom, name, false)
+}
+
+func GetEnvCustomOrDefault(custom string, name string) *EnvValue {
+	return getEnvCustom(custom, name, true)
+}
+
+func getEnvCustom(custom string, name string, allowDefault bool) *EnvValue {
+	key := custom + "_" + name
+	env := GetEnv(key)
+	if env.IsPresent() {
+		logger.Debug(ctxTag, "get", name, "customized by", custom, "as", key)
+		return env
+	} else if allowDefault {
+		logger.Debug(ctxTag, "get", name, "customized by", custom, "as", name)
+		return GetEnv(name)
+	} else {
+		return env
+	}
 }
