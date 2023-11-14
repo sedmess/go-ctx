@@ -3,6 +3,7 @@ package ctx
 import (
 	"github.com/sedmess/go-ctx/logger"
 	"reflect"
+	"unsafe"
 )
 
 const tagLogger = "logger"
@@ -40,9 +41,7 @@ func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	for i := 0; i < w.sType.NumField(); i++ {
 		sField := w.sType.Field(i)
-		if !sField.IsExported() {
-			continue
-		}
+		sValue := w.sValue.Field(i)
 
 		value, ok := sField.Tag.Lookup(tagLogger)
 		if ok {
@@ -53,7 +52,7 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 			} else {
 				l = logger.New(w)
 			}
-			w.sValue.Field(i).Set(reflect.ValueOf(l))
+			setFieldValue(sField, sValue, l)
 			continue
 		}
 
@@ -66,11 +65,10 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 			logger.Debug(w.name, "lookup dependency", value, "for field", sField.Name)
 			service = serviceProvider.ByName(value)
 		} else {
-			dName := sField.Type.String()
-			logger.Debug(w.name, "lookup dependency", dName, "for field", sField.Name)
-			service = serviceProvider.ByName(dName)
+			logger.Debug(w.name, "lookup dependency of type", sField.Type.String(), "for field", sField.Name)
+			service = serviceProvider.byReflectType(sField.Type)
 		}
-		w.sValue.Field(i).Set(reflect.ValueOf(service))
+		setFieldValue(sField, sValue, service)
 	}
 
 	if v, ok := w.sRef.(Initializable); ok {
@@ -102,4 +100,12 @@ func (w *reflectiveServiceWrapper) Dispose() {
 
 func (w *reflectiveServiceWrapper) service() any {
 	return w.sRef
+}
+
+func setFieldValue(f reflect.StructField, v reflect.Value, value any) {
+	if !f.IsExported() {
+		v = reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
+
+	}
+	v.Set(reflect.ValueOf(value))
 }

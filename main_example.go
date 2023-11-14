@@ -249,12 +249,12 @@ func (instance *reflectiveSingletonServiceImpl) Do() string {
 }
 
 type reflectiveSingletonService2 struct {
-	L logger.Logger              `logger:""`
-	D ReflectiveSingletonService `inject:""`
+	l logger.Logger              `logger:""`
+	d ReflectiveSingletonService `inject:""`
 }
 
 func (instance *reflectiveSingletonService2) Do() {
-	instance.L.Info(instance.D.Do())
+	instance.l.Info(instance.d.Do())
 }
 
 type panicService struct {
