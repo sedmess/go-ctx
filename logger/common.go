@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 )
 
-var lDebug = log.New(os.Stdout, "DEBUG", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds)
-var lInfo = log.New(os.Stdout, "INFO ", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds)
-var lError = log.New(os.Stderr, "ERROR", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds)
-var lFatal = log.New(os.Stderr, "FATAL", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds)
+var lDebug = log.New(os.Stdout, "DEBUG ", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds|log.Lshortfile)
+var lInfo = log.New(os.Stdout, "INFO ", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds|log.Lshortfile)
+var lError = log.New(os.Stderr, "ERROR ", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds|log.Lshortfile)
+var lFatal = log.New(os.Stderr, "FATAL ", log.Ldate|log.Ltime|log.Lmsgprefix|log.Lmicroseconds|log.Lshortfile)
 
 //goland:noinspection GoUnusedConst
 const (
@@ -128,6 +128,6 @@ func withTags(tag string, data []any) []any {
 		data = append(data, nil)
 		copy(data[1:], data)
 	}
-	data[0] = " [" + tag + "]"
+	data[0] = "[" + tag + "]"
 	return data
 }
