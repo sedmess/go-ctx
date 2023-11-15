@@ -7,6 +7,7 @@ import (
 )
 
 const tagLogger = "logger"
+const tagEnv = "env"
 const tagInject = "inject"
 
 type serviceWrapper interface {
@@ -43,6 +44,8 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 		sField := w.sType.Field(i)
 		sValue := w.sValue.Field(i)
 
+		sFieldType := sField.Type
+
 		value, ok := sField.Tag.Lookup(tagLogger)
 		if ok {
 			logger.Debug(w.name, "inject logger into field", sField.Name)
@@ -56,19 +59,36 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 			continue
 		}
 
-		value, ok = sField.Tag.Lookup(tagInject)
-		if !ok {
+		value, ok = sField.Tag.Lookup(tagEnv)
+		if ok && value != "" {
+			env := GetEnv(value)
+			if sField.Type.AssignableTo(reflect.TypeOf((*EnvValue)(nil))) {
+				logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name)
+				setFieldValue(sField, sValue, env)
+			} else {
+				if eValue, ok := env.asType(sFieldType); ok {
+					logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name, "with type", sFieldType.String())
+					setFieldValue(sField, sValue, eValue)
+				} else {
+					logger.Fatal(w.name, "can't inject EnvValue", value, "into field", sField.Name, "with type", sFieldType.String(), "- type not supported")
+				}
+			}
 			continue
 		}
-		var service any
-		if value != "" {
-			logger.Debug(w.name, "lookup dependency", value, "for field", sField.Name)
-			service = serviceProvider.ByName(value)
-		} else {
-			logger.Debug(w.name, "lookup dependency of type", sField.Type.String(), "for field", sField.Name)
-			service = serviceProvider.byReflectType(sField.Type)
+
+		value, ok = sField.Tag.Lookup(tagInject)
+		if ok {
+			var service any
+			if value != "" {
+				logger.Debug(w.name, "lookup dependency", value, "for field", sField.Name)
+				service = serviceProvider.ByName(value)
+			} else {
+				logger.Debug(w.name, "lookup dependency of type", sFieldType.String(), "for field", sField.Name)
+				service = serviceProvider.byReflectType(sFieldType)
+			}
+			setFieldValue(sField, sValue, service)
+			continue
 		}
-		setFieldValue(sField, sValue, service)
 	}
 
 	if v, ok := w.sRef.(Initializable); ok {

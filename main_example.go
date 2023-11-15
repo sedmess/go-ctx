@@ -336,6 +336,21 @@ func (l *loggerDemoService) AfterStart() {
 func (l *loggerDemoService) BeforeStop() {
 }
 
+type envInjectDemoService struct {
+	l                logger.Logger            `logger:""`
+	envValue         *ctx.EnvValue            `env:"DURATION"`
+	envValueDuration time.Duration            `env:"DURATION"`
+	envValueString   string                   `env:"DURATION"`
+	envMap           map[string]*ctx.EnvValue `env:"MAP"`
+}
+
+func (e *envInjectDemoService) AfterStart() {
+	e.l.Info(e.envValue.AsDuration().String())
+}
+
+func (e *envInjectDemoService) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -368,6 +383,7 @@ func main() {
 			&panicService{},
 			&anonymousService{}, &asConsumerService{},
 			&loggerDemoService{},
+			&envInjectDemoService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

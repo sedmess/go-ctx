@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"github.com/sedmess/go-ctx/logger"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,36 @@ func init() {
 		envFileMap[substrs[0]] = substrs[1]
 	}
 	properties = envFileMap
+}
+
+var envTypes = map[reflect.Type]func(e *EnvValue) any{
+	reflect.TypeOf(""): func(e *EnvValue) any {
+		return e.AsString()
+	},
+	reflect.TypeOf(0): func(e *EnvValue) any {
+		return e.AsInt()
+	},
+	reflect.TypeOf(true): func(e *EnvValue) any {
+		return e.AsBool()
+	},
+	reflect.TypeOf(int64(0)): func(e *EnvValue) any {
+		return e.AsInt64()
+	},
+	reflect.TypeOf(make([]string, 0)): func(e *EnvValue) any {
+		return e.AsStringArray()
+	},
+	reflect.TypeOf(make([]int, 0)): func(e *EnvValue) any {
+		return e.AsIntArray()
+	},
+	reflect.TypeOf(make([]int64, 0)): func(e *EnvValue) any {
+		return e.AsInt64Array()
+	},
+	reflect.TypeOf(time.Second): func(e *EnvValue) any {
+		return e.AsDuration()
+	},
+	reflect.TypeOf(make(map[string]*EnvValue)): func(e *EnvValue) any {
+		return e.AsMap()
+	},
 }
 
 type EnvValue struct {
@@ -216,6 +247,14 @@ func (instance *EnvValue) AsMap() map[string]*EnvValue {
 		}
 	}
 	return result
+}
+
+func (instance *EnvValue) asType(rType reflect.Type) (any, bool) {
+	if fn, found := envTypes[rType]; found {
+		return fn(instance), true
+	} else {
+		return nil, false
+	}
 }
 
 func (instance *EnvValue) fatalIfNotExists() {
