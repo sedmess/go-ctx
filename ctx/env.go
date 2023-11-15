@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const defaultPropertiesFileName = ".env"
@@ -178,6 +179,24 @@ func (instance *EnvValue) AsBool() bool {
 func (instance *EnvValue) AsBoolDefault(def bool) bool {
 	if instance.IsPresent() {
 		return instance.AsBool()
+	} else {
+		return def
+	}
+}
+
+func (instance *EnvValue) AsDuration() time.Duration {
+	instance.fatalIfNotExists()
+	if durationValue, err := time.ParseDuration(instance.value); err != nil {
+		panic(instance.name + ": can't convert to time.Duration: " + instance.value)
+		return 0
+	} else {
+		return durationValue
+	}
+}
+
+func (instance *EnvValue) AsDurationDefault(def time.Duration) time.Duration {
+	if instance.IsPresent() {
+		return instance.AsDuration()
 	} else {
 		return def
 	}

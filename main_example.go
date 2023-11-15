@@ -344,6 +344,9 @@ func main() {
 
 	_ = os.Setenv("MIS", "mis_default")
 	_ = os.Setenv("I1_MIS", "mis_i1")
+	_ = os.Setenv("DURATION", "60s")
+
+	println(ctx.GetEnv("DURATION").AsDuration().String())
 
 	connAService := newConnAService()
 	go func() {
