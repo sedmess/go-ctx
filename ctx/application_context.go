@@ -68,16 +68,21 @@ func StartContextualizedApplication(packageServices ...[]any) {
 
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	select {
-	case <-sigCh:
-		ctxInstance.stop()
-		return
-	case e := <-ctxInstance.eventBus:
-		switch e.kind {
-		case ePanic:
+	for {
+		select {
+		case <-sigCh:
 			ctxInstance.stop()
-			panicPayload := e.payload.(panicPayload)
-			logger.Fatal(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+			return
+		case e := <-ctxInstance.eventBus:
+			switch e.kind {
+			case eUnhandledPanic:
+				ctxInstance.stop()
+				panicPayload := e.payload.(panicPayload)
+				logger.Fatal(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+			case eSuppressedPanic:
+				panicPayload := e.payload.(panicPayload)
+				logger.Error(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+			}
 		}
 	}
 }

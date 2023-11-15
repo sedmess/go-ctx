@@ -26,25 +26,25 @@ func NewWithTag(tag string) Logger {
 }
 
 func (instance *logger) Debug(msg ...any) {
-	Debug(instance.tag, msg...)
+	debugInt(instance.tag, msg...)
 }
 
 func (instance *logger) DebugLazy(dataProvider func() []any) {
-	DebugLazy(instance.tag, dataProvider)
+	debugLazyInt(instance.tag, dataProvider)
 }
 
 func (instance *logger) Info(msg ...any) {
-	Info(instance.tag, msg...)
+	infoInt(instance.tag, msg...)
 }
 
 func (instance *logger) InfoLazy(dataProvider func() []any) {
-	InfoLazy(instance.tag, dataProvider)
+	infoLazyInt(instance.tag, dataProvider)
 }
 
 func (instance *logger) Error(msg ...any) {
-	Error(instance.tag, msg...)
+	errorInt(instance.tag, msg...)
 }
 
 func (instance *logger) Fatal(msg ...any) {
-	Fatal(instance.tag, msg...)
+	fatalInt(instance.tag, msg...)
 }

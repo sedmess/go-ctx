@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"github.com/sedmess/go-ctx/u"
 	"io"
 	"log"
@@ -95,30 +96,60 @@ func LogLevel() int {
 
 func DebugLazy(tag string, dataProvider func() []any) {
 	if LogLevel() <= DEBUG {
-		Debug(tag, dataProvider()...)
+		_ = lDebug.Output(2, fmt.Sprintln(withTags(tag, dataProvider())...))
+	}
+}
+
+func debugLazyInt(tag string, dataProvider func() []any) {
+	if LogLevel() <= DEBUG {
+		_ = lDebug.Output(3, fmt.Sprintln(withTags(tag, dataProvider())...))
 	}
 }
 
 func Debug(tag string, data ...any) {
-	lDebug.Println(withTags(tag, data)...)
+	_ = lDebug.Output(2, fmt.Sprintln(withTags(tag, data)...))
+}
+
+func debugInt(tag string, data ...any) {
+	_ = lDebug.Output(3, fmt.Sprintln(withTags(tag, data)...))
 }
 
 func InfoLazy(tag string, dataProvider func() []any) {
 	if LogLevel() <= INFO {
-		Info(tag, dataProvider()...)
+		_ = lInfo.Output(2, fmt.Sprintln(withTags(tag, dataProvider())...))
+	}
+}
+
+func infoLazyInt(tag string, dataProvider func() []any) {
+	if LogLevel() <= INFO {
+		_ = lInfo.Output(3, fmt.Sprintln(withTags(tag, dataProvider())...))
 	}
 }
 
 func Info(tag string, data ...any) {
-	lInfo.Println(withTags(tag, data)...)
+	_ = lInfo.Output(2, fmt.Sprintln(withTags(tag, data)...))
+}
+
+func infoInt(tag string, data ...any) {
+	_ = lInfo.Output(3, fmt.Sprintln(withTags(tag, data)...))
 }
 
 func Error(tag string, data ...any) {
-	lError.Println(withTags(tag, data)...)
+	_ = lError.Output(2, fmt.Sprintln(withTags(tag, data)...))
+}
+
+func errorInt(tag string, data ...any) {
+	_ = lError.Output(3, fmt.Sprintln(withTags(tag, data)...))
 }
 
 func Fatal(tag string, data ...any) {
-	lFatal.Fatalln(withTags(tag, data)...)
+	_ = lFatal.Output(2, fmt.Sprintln(withTags(tag, data)...))
+	os.Exit(1)
+}
+
+func fatalInt(tag string, data ...any) {
+	_ = lFatal.Output(3, fmt.Sprintln(withTags(tag, data)...))
+	os.Exit(1)
 }
 
 func withTags(tag string, data []any) []any {

@@ -1,7 +1,8 @@
 package ctx
 
 const (
-	ePanic = iota
+	eUnhandledPanic = iota
+	eSuppressedPanic
 )
 
 type event struct {

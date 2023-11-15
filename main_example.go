@@ -237,7 +237,9 @@ func (instance *reflectiveSingletonServiceImpl) Name() string {
 
 func (instance *reflectiveSingletonServiceImpl) AfterStart() {
 	instance.A.Do()
-	instance.L.Info("A =", instance.A.Name())
+	instance.L.InfoLazy(func() []any {
+		return []any{"A =", instance.A.Name()}
+	})
 }
 
 func (instance *reflectiveSingletonServiceImpl) BeforeStop() {
@@ -295,6 +297,45 @@ func (a *asConsumerService) AfterStart() {
 func (a *asConsumerService) BeforeStop() {
 }
 
+type loggerDemoService struct {
+	l      logger.Logger `logger:""`
+	lNamed logger.Logger `logger:"named-logger"`
+}
+
+func (l *loggerDemoService) AfterStart() {
+	l.l.Debug("debug demo", 1)
+	l.l.DebugLazy(func() []any {
+		return []any{"debug demo", 2}
+	})
+	l.lNamed.Debug("debug demo", 3)
+	l.lNamed.DebugLazy(func() []any {
+		return []any{"debug demo", 4}
+	})
+	logger.Debug("tag-logger", "debug demo", 5)
+	logger.DebugLazy("tag-logger", func() []any {
+		return []any{"debug demo", 6}
+	})
+	l.l.Info("info demo", 1)
+	l.l.InfoLazy(func() []any {
+		return []any{"info demo", 2}
+	})
+	l.lNamed.Info("info demo", 3)
+	l.lNamed.InfoLazy(func() []any {
+		return []any{"info demo", 4}
+	})
+	logger.Info("tag-logger", "info demo", 5)
+	logger.InfoLazy("tag-logger", func() []any {
+		return []any{"info demo", 6}
+	})
+
+	l.l.Error("error demo", 1)
+	l.lNamed.Error("error demo", 2)
+	logger.Error("tag-logger", "error demo", 3)
+}
+
+func (l *loggerDemoService) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -323,6 +364,7 @@ func main() {
 			&reflectiveSingletonServiceImpl{}, r2,
 			&panicService{},
 			&anonymousService{}, &asConsumerService{},
+			&loggerDemoService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
