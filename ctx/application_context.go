@@ -196,10 +196,7 @@ func (ctx *appContext) start() {
 		if ok {
 			wg.Add(1)
 			go func(serviceName string) {
-				defer func() {
-					logger.Debug(ctxTag, "["+serviceName+"] !!!")
-					wg.Done()
-				}()
+				defer wg.Done()
 				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
 				runWithRecover(
 					lifecycleAwareInstance.AfterStart,
