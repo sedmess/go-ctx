@@ -184,6 +184,7 @@ func (ctx *appContext) start() {
 
 	var wg sync.WaitGroup
 	for serviceName, serviceInstance := range ctx.services {
+		serviceInstance := unwrap(serviceInstance)
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
 			wg.Add(1)
@@ -214,7 +215,7 @@ func (ctx *appContext) stop() {
 
 	for i := len(ctx.initOrder) - 1; i >= 0; i-- {
 		serviceName := ctx.initOrder[i]
-		serviceInstance := ctx.services[serviceName]
+		serviceInstance := unwrap(ctx.services[serviceName])
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
 			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
