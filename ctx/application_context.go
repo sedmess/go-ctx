@@ -26,6 +26,7 @@ var ctx *appContext
 
 type AppContext interface {
 	GetService(serviceName string) any
+	Stats() ApplicationContextStats
 }
 
 type appContext struct {
@@ -36,6 +37,8 @@ type appContext struct {
 	services  map[string]Service
 	states    map[string]state
 	initOrder []string
+
+	stats *appContextStats
 
 	eventBus chan event
 }
@@ -116,6 +119,7 @@ func newApplicationContext() *appContext {
 	ctx.states = make(map[string]state)
 	ctx.initOrder = make([]string, 0)
 	ctx.eventBus = make(chan event)
+	ctx.stats = createContextStats()
 	return &ctx
 }
 
@@ -141,6 +145,9 @@ func (ctx *appContext) register(serviceInstance any) AppContext {
 	serviceName := sInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
 		logger.Fatal(ctxTag, "service name duplication: ["+serviceName+"]")
+	}
+	if serviceName == ctxTag {
+		logger.Fatal(ctxTag, "service can't have reserved name: ["+ctxTag+"]")
 	}
 	ctx.services[serviceName] = sInstance
 	ctx.states[serviceName] = stateNotInitialized
@@ -189,7 +196,10 @@ func (ctx *appContext) start() {
 		if ok {
 			wg.Add(1)
 			go func(serviceName string) {
-				defer wg.Done()
+				defer func() {
+					logger.Debug(ctxTag, "["+serviceName+"] !!!")
+					wg.Done()
+				}()
 				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
 				runWithRecover(
 					lifecycleAwareInstance.AfterStart,
@@ -249,12 +259,28 @@ func (ctx *appContext) GetService(serviceName string) any {
 	return ctx.services[serviceName]
 }
 
+func (ctx *appContext) Stats() ApplicationContextStats {
+	ctx.RLock()
+	defer ctx.RUnlock()
+
+	ctx.checkState(stateInitialized)
+
+	return ctx.stats
+}
+
 func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
+	serviceDescriptor := createDescriptorFor(serviceInstance)
 	serviceInstance.Init(serviceProviderImpl(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
+
+		if requestedServiceName == ctxTag {
+			return ctx
+		}
+
+		serviceDescriptor.addDependency(requestedServiceName)
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
 			if serviceState == stateInitialized {
@@ -275,6 +301,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	}))
 	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
+	ctx.stats.addServiceDescriptor(serviceDescriptor)
 }
 
 func (ctx *appContext) disposeServices() {

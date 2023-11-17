@@ -83,6 +83,7 @@ func (instance *timedService) AfterStart() {
 	instance.StartTimer(2*time.Second, func() {
 		logger.Info("timer", "onTimer!")
 	})
+	instance.l.Info("afterStart2")
 }
 
 func (instance *timedService) BeforeStop() {
@@ -351,6 +352,25 @@ func (e *envInjectDemoService) AfterStart() {
 func (e *envInjectDemoService) BeforeStop() {
 }
 
+type ctxInjectService struct {
+	l    logger.Logger  `logger:""`
+	ctx1 ctx.AppContext `inject:"CTX"`
+	ctx2 ctx.AppContext
+}
+
+func (instance *ctxInjectService) AfterStart() {
+	go func() {
+		instance.l.Info(instance.ctx1.Stats())
+	}()
+}
+
+func (instance *ctxInjectService) BeforeStop() {
+}
+
+func (instance *ctxInjectService) Init(serviceProvider ctx.ServiceProvider) {
+	instance.ctx2 = serviceProvider.ByName("CTX").(ctx.AppContext)
+}
+
 func main() {
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -384,6 +404,7 @@ func main() {
 			&anonymousService{}, &asConsumerService{},
 			&loggerDemoService{},
 			&envInjectDemoService{},
+			&ctxInjectService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
