@@ -27,6 +27,7 @@ var ctx *appContext
 type AppContext interface {
 	GetService(serviceName string) any
 	Stats() ApplicationContextStats
+	State() (int, string)
 }
 
 type appContext struct {
@@ -164,6 +165,8 @@ func (ctx *appContext) start() {
 	ctx.state = stateInitialization
 	targetState := stateInitialized
 
+	logger.Info(ctxTag, "=== starting... ===")
+
 	for serviceName, serviceInstance := range ctx.services {
 		if targetState == stateUsed {
 			break
@@ -187,13 +190,15 @@ func (ctx *appContext) start() {
 		logger.Fatal(ctxTag, "can't start context, see log above")
 	}
 
-	logger.Info(ctxTag, "started")
+	logger.Info(ctxTag, "=== all services have been initialized ===")
 
 	var wg sync.WaitGroup
+	hasLCServices := false
 	for serviceName, serviceInstance := range ctx.services {
 		serviceInstance := unwrap(serviceInstance)
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
+			hasLCServices = true
 			wg.Add(1)
 			go func(serviceName string) {
 				defer wg.Done()
@@ -209,6 +214,12 @@ func (ctx *appContext) start() {
 	}
 	wg.Wait()
 
+	if hasLCServices {
+		logger.Info(ctxTag, "=== all lifecycle-aware services handled AfterStart event ===")
+	}
+
+	logger.Info(ctxTag, "=== ...started ===")
+
 	ctx.state = targetState
 }
 
@@ -220,21 +231,29 @@ func (ctx *appContext) stop() {
 		return
 	}
 
+	logger.Info(ctxTag, "=== stopping... ===")
+
+	hasLCServices := false
 	for i := len(ctx.initOrder) - 1; i >= 0; i-- {
 		serviceName := ctx.initOrder[i]
 		serviceInstance := unwrap(ctx.services[serviceName])
 		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
 		if ok {
+			hasLCServices = true
 			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
 			runWithRecover(
 				func() {
 					lifecycleAwareInstance.BeforeStop()
 				},
 				func(reason any) {
-					logger.Error(ctxTag, "panic on ["+serviceName+"] stopping", reason, "stacktrace:", string(debug.Stack()))
+					logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop()", reason, "stacktrace:", string(debug.Stack()))
 				},
 			)
 		}
+	}
+
+	if hasLCServices {
+		logger.Info(ctxTag, "=== all lifecycle-aware services handled BeforeStop event ===")
 	}
 
 	ctx.state = stateUsed
@@ -244,7 +263,7 @@ func (ctx *appContext) stop() {
 	ctx.services = nil
 	ctx.states = nil
 
-	logger.Info(ctxTag, "stopped")
+	logger.Info(ctxTag, "=== ...stopped ===")
 }
 
 func (ctx *appContext) GetService(serviceName string) any {
@@ -263,6 +282,11 @@ func (ctx *appContext) Stats() ApplicationContextStats {
 	ctx.checkState(stateInitialized)
 
 	return ctx.stats
+}
+
+func (ctx *appContext) State() (int, string) {
+	state := ctx.state
+	return state.code, state.name
 }
 
 func (ctx *appContext) initService(serviceInstance Service) {
