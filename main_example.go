@@ -422,6 +422,11 @@ func main() {
 		r2.Do()
 	}()
 
+	go func() {
+		aService := ctx.GetService(aServiceName).(*aService)
+		aService.Do()
+	}()
+
 	ctx.StartContextualizedApplication(
 		[]any{
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{name: multiInstanceServiceNamePrefix + "1", custom: "I1"}, &multiInstanceService{name: multiInstanceServiceNamePrefix + "2", custom: "I2"}, &multiInstanceGetService{},

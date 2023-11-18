@@ -272,7 +272,7 @@ func (ctx *appContext) GetService(serviceName string) any {
 
 	ctx.checkState(stateInitialized)
 
-	return ctx.services[serviceName]
+	return unwrap(ctx.services[serviceName])
 }
 
 func (ctx *appContext) Stats() AppContextStats {
