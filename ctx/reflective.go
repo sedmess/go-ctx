@@ -26,7 +26,7 @@ func unwrap(service Service) any {
 	if s, ok := service.(serviceWrapper); ok {
 		return s.service()
 	} else {
-		return service
+		panic("unexpected error")
 	}
 }
 

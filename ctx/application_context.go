@@ -141,10 +141,7 @@ func (ctx *appContext) register(serviceInstance any) AppContext {
 
 	ctx.checkState(stateNotInitialized)
 
-	sInstance, ok := serviceInstance.(Service)
-	if !ok {
-		sInstance = newReflectiveServiceWrapper(serviceInstance)
-	}
+	sInstance := newReflectiveServiceWrapper(serviceInstance)
 
 	serviceName := sInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
