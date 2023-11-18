@@ -249,7 +249,10 @@ func (instance *EnvValue) AsMap() map[string]*EnvValue {
 	return result
 }
 
-func (instance *EnvValue) asType(rType reflect.Type) (any, bool) {
+func (instance *EnvValue) asType(rType reflect.Type, def string) (any, bool) {
+	if def != "" && !instance.IsPresent() {
+		instance.value = def
+	}
 	if fn, found := envTypes[rType]; found {
 		return fn(instance), true
 	} else {

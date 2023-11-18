@@ -371,6 +371,26 @@ func (instance *ctxInjectService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.ctx2 = serviceProvider.ByName("CTX").(ctx.AppContext)
 }
 
+type envDefInjectService struct {
+	l    logger.Logger            `logger:""`
+	val1 time.Duration            `env:"DEF_VALUE_TEST1" envDef:"10s"`
+	val2 string                   `env:"DEF_VALUE_TEST2" envDef:"str"`
+	val3 map[string]*ctx.EnvValue `env:"DEF_VALUE_TEST3" envDef:"k1=1,2,3|k2=123|k3=10s"`
+	val4 string                   `env:"DURATION" envDef:"0s"`
+}
+
+func (e *envDefInjectService) AfterStart() {
+	e.l.Info("val1 =", e.val1.String())
+	e.l.Info("val2 =", e.val2)
+	e.l.Info("val3.k1 =", e.val3["k1"].AsStringArray())
+	e.l.Info("val3.k3 =", e.val3["k2"].AsInt64())
+	e.l.Info("val3.k1 =", e.val3["k3"].AsDuration().String())
+	e.l.Info("val4 =", e.val4)
+}
+
+func (e *envDefInjectService) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -405,6 +425,7 @@ func main() {
 			&loggerDemoService{},
 			&envInjectDemoService{},
 			&ctxInjectService{},
+			&envDefInjectService{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

@@ -8,6 +8,7 @@ import (
 
 const tagLogger = "logger"
 const tagEnv = "env"
+const tagDefEnv = "envDef"
 const tagInject = "inject"
 
 type serviceWrapper interface {
@@ -66,7 +67,8 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 				logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name)
 				setFieldValue(sField, sValue, env)
 			} else {
-				if eValue, ok := env.asType(sFieldType); ok {
+				defValue, _ := sField.Tag.Lookup(tagDefEnv)
+				if eValue, ok := env.asType(sFieldType, defValue); ok {
 					logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name, "with type", sFieldType.String())
 					setFieldValue(sField, sValue, eValue)
 				} else {
