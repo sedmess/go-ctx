@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type ApplicationContextStats interface {
+type AppContextStats interface {
 	Services() map[string]ServiceDescriptor
 }
 
@@ -47,6 +47,6 @@ func (s *appContextStats) String() string {
 	return fmt.Sprintf("services: %v", s.services)
 }
 
-func (s *appContextStats) addServiceDescriptor(sd ServiceDescriptor) {
+func (s *appContextStats) registerServiceDescriptor(sd ServiceDescriptor) {
 	s.services[sd.Name] = sd
 }

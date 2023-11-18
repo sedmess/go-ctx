@@ -26,7 +26,8 @@ var ctx *appContext
 
 type AppContext interface {
 	GetService(serviceName string) any
-	Stats() ApplicationContextStats
+	Stats() AppContextStats
+	Health() AppContextHealth
 	State() (int, string)
 }
 
@@ -39,7 +40,8 @@ type appContext struct {
 	states    map[string]state
 	initOrder []string
 
-	stats *appContextStats
+	stats  *appContextStats
+	health *appContextHealth
 
 	eventBus chan event
 }
@@ -121,6 +123,7 @@ func newApplicationContext() *appContext {
 	ctx.initOrder = make([]string, 0)
 	ctx.eventBus = make(chan event)
 	ctx.stats = createContextStats()
+	ctx.health = createContextHealth()
 	return &ctx
 }
 
@@ -275,13 +278,22 @@ func (ctx *appContext) GetService(serviceName string) any {
 	return ctx.services[serviceName]
 }
 
-func (ctx *appContext) Stats() ApplicationContextStats {
+func (ctx *appContext) Stats() AppContextStats {
 	ctx.RLock()
 	defer ctx.RUnlock()
 
 	ctx.checkState(stateInitialized)
 
 	return ctx.stats
+}
+
+func (ctx *appContext) Health() AppContextHealth {
+	ctx.RLock()
+	defer ctx.RUnlock()
+
+	ctx.checkState(stateInitialized)
+
+	return ctx.health
 }
 
 func (ctx *appContext) State() (int, string) {
@@ -293,7 +305,12 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
+
 	serviceDescriptor := createDescriptorFor(serviceInstance)
+	if healthReporter, ok := serviceInstance.(HealthReporter); ok {
+		ctx.health.registerHealthReporter(serviceInstance.Name(), healthReporter)
+	}
+
 	serviceInstance.Init(serviceProviderImpl(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 
@@ -322,7 +339,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	}))
 	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
-	ctx.stats.addServiceDescriptor(serviceDescriptor)
+	ctx.stats.registerServiceDescriptor(serviceDescriptor)
 }
 
 func (ctx *appContext) disposeServices() {

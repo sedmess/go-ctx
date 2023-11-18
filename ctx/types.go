@@ -1,6 +1,9 @@
 package ctx
 
-import "reflect"
+import (
+	"github.com/sedmess/go-ctx/ctx/health"
+	"reflect"
+)
 
 type ServiceProvider interface {
 	ByName(name string) any
@@ -44,4 +47,8 @@ type Service interface {
 type LifecycleAware interface {
 	AfterStart()
 	BeforeStop()
+}
+
+type HealthReporter interface {
+	Health() health.ServiceHealth
 }

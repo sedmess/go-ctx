@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/sedmess/go-ctx/ctx"
+	"github.com/sedmess/go-ctx/ctx/health"
 	"github.com/sedmess/go-ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
@@ -30,6 +31,10 @@ func (instance *aService) Dispose() {
 
 func (instance *aService) Do() {
 	logger.Info(instance.Name(), "invoked: paramA =", instance.paramA)
+}
+
+func (instance *aService) Health() health.ServiceHealth {
+	return health.Status(health.Up)
 }
 
 const bServiceName = "b_service"
@@ -361,6 +366,7 @@ type ctxInjectService struct {
 func (instance *ctxInjectService) AfterStart() {
 	go func() {
 		instance.l.Info(instance.ctx1.Stats())
+		instance.l.Info(instance.ctx1.Health().Aggregate())
 	}()
 }
 
