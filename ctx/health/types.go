@@ -12,9 +12,9 @@ const (
 )
 
 type ServiceHealth struct {
-	Status     ServiceHealthStatus
-	Details    map[string]any
-	Components map[string]ServiceHealth
+	Status     ServiceHealthStatus      `json:"status"`
+	Details    map[string]any           `json:"details"`
+	Components map[string]ServiceHealth `json:"components"`
 }
 
 func Status(status ServiceHealthStatus) ServiceHealth {

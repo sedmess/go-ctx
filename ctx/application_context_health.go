@@ -40,6 +40,9 @@ func (h *appContextHealth) Aggregate() health.ServiceHealth {
 	return result
 }
 
-func (h *appContextHealth) registerHealthReporter(name string, service HealthReporter) {
-	h.services[name] = service
+func (h *appContextHealth) registerHealthReporter(service Service) {
+	sInstance := unwrap(service)
+	if healthReporter, ok := sInstance.(HealthReporter); ok {
+		h.services[service.Name()] = healthReporter
+	}
 }

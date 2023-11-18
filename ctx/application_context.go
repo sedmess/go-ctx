@@ -307,9 +307,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
 
 	serviceDescriptor := createDescriptorFor(serviceInstance)
-	if healthReporter, ok := serviceInstance.(HealthReporter); ok {
-		ctx.health.registerHealthReporter(serviceInstance.Name(), healthReporter)
-	}
+	ctx.health.registerHealthReporter(serviceInstance)
 
 	serviceInstance.Init(serviceProviderImpl(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
