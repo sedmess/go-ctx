@@ -7,6 +7,7 @@ import (
 )
 
 const tagLogger = "logger"
+const tagImplement = "implement"
 const tagEnv = "env"
 const tagDefEnv = "envDef"
 const tagInject = "inject"
@@ -32,12 +33,32 @@ func unwrap(service Service) any {
 
 func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
 	var sName string
+	sType := reflect.TypeOf(service)
+	sTypeElem := sType.Elem()
 	if v, ok := service.(Named); ok {
 		sName = v.Name()
 	} else {
-		sName = reflect.TypeOf(service).String()
+		var nameCandidateField *reflect.StructField
+		for i := 0; i < sTypeElem.NumField(); i++ {
+			sField := sTypeElem.Field(i)
+			if sField.Anonymous && sField.Type.Kind() == reflect.Interface {
+				if _, ok := sField.Tag.Lookup(tagImplement); ok {
+					if nameCandidateField == nil {
+						nameCandidateField = &sField
+					} else {
+						nameCandidateField = nil
+						break
+					}
+				}
+			}
+		}
+		if nameCandidateField != nil {
+			sName = nameCandidateField.Type.String()
+		} else {
+			sName = sType.String()
+		}
 	}
-	return &reflectiveServiceWrapper{sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: reflect.TypeOf(service).Elem(), name: sName}
+	return &reflectiveServiceWrapper{sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
 }
 
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {

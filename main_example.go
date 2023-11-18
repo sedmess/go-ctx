@@ -397,6 +397,30 @@ func (e *envDefInjectService) AfterStart() {
 func (e *envDefInjectService) BeforeStop() {
 }
 
+type intRefService interface {
+	DoSomething()
+}
+
+type intRefServiceImpl struct {
+	intRefService `implement:""`
+	l             logger.Logger `logger:""`
+}
+
+func (i *intRefServiceImpl) DoSomething() {
+	i.l.Info("do something")
+}
+
+type intRef2Service struct {
+	srv intRefService `inject:""`
+}
+
+func (i *intRef2Service) AfterStart() {
+	i.srv.DoSomething()
+}
+
+func (i *intRef2Service) BeforeStop() {
+}
+
 func main() {
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -437,6 +461,8 @@ func main() {
 			&envInjectDemoService{},
 			&ctxInjectService{},
 			&envDefInjectService{},
+			&intRefServiceImpl{},
+			&intRef2Service{},
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
