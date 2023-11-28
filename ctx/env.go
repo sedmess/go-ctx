@@ -52,11 +52,20 @@ var envTypes = map[reflect.Type]func(e *EnvValue) any{
 	reflect.TypeOf(make([]string, 0)): func(e *EnvValue) any {
 		return e.AsStringArray()
 	},
+	reflect.TypeOf(make(map[string]bool)): func(e *EnvValue) any {
+		return e.AsStringSet()
+	},
 	reflect.TypeOf(make([]int, 0)): func(e *EnvValue) any {
 		return e.AsIntArray()
 	},
+	reflect.TypeOf(make(map[int]bool)): func(e *EnvValue) any {
+		return e.AsIntSet()
+	},
 	reflect.TypeOf(make([]int64, 0)): func(e *EnvValue) any {
 		return e.AsInt64Array()
+	},
+	reflect.TypeOf(make(map[int64]bool)): func(e *EnvValue) any {
+		return e.AsInt64Set()
 	},
 	reflect.TypeOf(time.Second): func(e *EnvValue) any {
 		return e.AsDuration()
@@ -105,6 +114,24 @@ func (instance *EnvValue) AsStringArrayDefault(def []string) []string {
 	}
 }
 
+func (instance *EnvValue) AsStringSet() map[string]bool {
+	arr := instance.AsStringArray()
+	set := make(map[string]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
+}
+
+func (instance *EnvValue) AsStringSetDefault(def []string) map[string]bool {
+	arr := instance.AsStringArrayDefault(def)
+	set := make(map[string]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
+}
+
 func (instance *EnvValue) AsInt() int {
 	instance.fatalIfNotExists()
 	if a, err := strconv.Atoi(instance.value); err != nil {
@@ -151,6 +178,27 @@ func (instance *EnvValue) AsIntArrayDefault() []int {
 	}
 }
 
+func (instance *EnvValue) AsIntSet() map[int]bool {
+	arr := instance.AsIntArray()
+	set := make(map[int]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
+}
+
+func (instance *EnvValue) AsIntSetDefault() map[int]bool {
+	if !instance.IsPresent() {
+		return make(map[int]bool)
+	}
+	arr := instance.AsIntArray()
+	set := make(map[int]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
+}
+
 func (instance *EnvValue) AsInt64() int64 {
 	instance.fatalIfNotExists()
 	if a, err := strconv.ParseInt(instance.value, 10, 64); err != nil {
@@ -195,6 +243,27 @@ func (instance *EnvValue) AsInt64ArrayDefault() []int64 {
 	} else {
 		return make([]int64, 0)
 	}
+}
+
+func (instance *EnvValue) AsInt64Set() map[int64]bool {
+	arr := instance.AsInt64Array()
+	set := make(map[int64]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
+}
+
+func (instance *EnvValue) AsInt64SetDefault() map[int64]bool {
+	if !instance.IsPresent() {
+		return make(map[int64]bool)
+	}
+	arr := instance.AsInt64Array()
+	set := make(map[int64]bool)
+	for _, v := range arr {
+		set[v] = true
+	}
+	return set
 }
 
 func (instance *EnvValue) AsBool() bool {

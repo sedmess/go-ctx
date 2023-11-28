@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/health"
 	"github.com/sedmess/go-ctx/logger"
@@ -383,6 +384,10 @@ type envDefInjectService struct {
 	val2          string                   `env:"DEF_VALUE_TEST2" envDef:"str"`
 	val3          map[string]*ctx.EnvValue `env:"DEF_VALUE_TEST3" envDef:"k1=1,2,3|k2=123|k3=10s"`
 	val4          string                   `env:"DURATION" envDef:"0s"`
+	val5          map[string]bool          `env:"STR_SET"`
+	val6          map[string]bool          `env:"STR_SET2" envDef:"s3,s2,s1"`
+	val7          map[int]bool             `env:"INT_SET"`
+	val8          map[int64]bool           `env:"INT_SET"`
 }
 
 func (e *envDefInjectService) AfterStart() {
@@ -391,7 +396,10 @@ func (e *envDefInjectService) AfterStart() {
 	e.LogInfo("val3.k1 =", e.val3["k1"].AsStringArray())
 	e.LogInfo("val3.k3 =", e.val3["k2"].AsInt64())
 	e.LogInfo("val3.k1 =", e.val3["k3"].AsDuration().String())
-	e.LogInfo("val4 =", e.val4)
+	e.LogInfo(fmt.Sprintf("val5 = %v", e.val5))
+	e.LogInfo(fmt.Sprintf("val6 = %v", e.val6))
+	e.LogInfo(fmt.Sprintf("val7 = %v", e.val7))
+	e.LogInfo(fmt.Sprintf("val8 = %v", e.val8))
 }
 
 func (e *envDefInjectService) BeforeStop() {
@@ -430,8 +438,14 @@ func main() {
 	_ = os.Setenv("MIS", "mis_default")
 	_ = os.Setenv("I1_MIS", "mis_i1")
 	_ = os.Setenv("DURATION", "60s")
+	_ = os.Setenv("STR_SET", "s1,s2,s3")
+	_ = os.Setenv("INT_SET", "1,2,3")
 
 	println(ctx.GetEnv("DURATION").AsDuration().String())
+	println(fmt.Sprintf("%v", ctx.GetEnv("STR_SET").AsStringSet()))
+	println(fmt.Sprintf("%v", ctx.GetEnv("STR_SET").AsStringSet()))
+	println(fmt.Sprintf("%v", ctx.GetEnv("INT_SET").AsIntSet()))
+	println(fmt.Sprintf("%v", ctx.GetEnv("INT_SET").AsInt64Set()))
 
 	connAService := newConnAService()
 	go func() {
