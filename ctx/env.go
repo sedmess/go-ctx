@@ -50,22 +50,22 @@ var envTypes = map[reflect.Type]func(e *EnvValue) any{
 		return e.AsInt64()
 	},
 	reflect.TypeOf(make([]string, 0)): func(e *EnvValue) any {
-		return e.AsStringArray()
+		return e.AsStringArrayDefault([]string{})
 	},
 	reflect.TypeOf(make(map[string]bool)): func(e *EnvValue) any {
-		return e.AsStringSet()
+		return e.AsStringSetDefault([]string{})
 	},
 	reflect.TypeOf(make([]int, 0)): func(e *EnvValue) any {
-		return e.AsIntArray()
+		return e.AsIntArrayDefault()
 	},
 	reflect.TypeOf(make(map[int]bool)): func(e *EnvValue) any {
-		return e.AsIntSet()
+		return e.AsIntSetDefault()
 	},
 	reflect.TypeOf(make([]int64, 0)): func(e *EnvValue) any {
-		return e.AsInt64Array()
+		return e.AsInt64ArrayDefault()
 	},
 	reflect.TypeOf(make(map[int64]bool)): func(e *EnvValue) any {
-		return e.AsInt64Set()
+		return e.AsInt64SetDefault()
 	},
 	reflect.TypeOf(time.Second): func(e *EnvValue) any {
 		return e.AsDuration()
