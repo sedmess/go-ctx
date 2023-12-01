@@ -389,6 +389,7 @@ type envDefInjectService struct {
 	val7          map[int]bool             `env:"INT_SET"`
 	val8          map[int64]bool           `env:"INT_SET"`
 	val9          map[string]bool          `env:"UNDEFINED_SET"`
+	val10         map[string]*ctx.EnvValue `env:"UNDEFINED_MAP"`
 }
 
 func (e *envDefInjectService) AfterStart() {
@@ -402,6 +403,7 @@ func (e *envDefInjectService) AfterStart() {
 	e.LogInfo(fmt.Sprintf("val7 = %v", e.val7))
 	e.LogInfo(fmt.Sprintf("val8 = %v", e.val8))
 	e.LogInfo(fmt.Sprintf("val9 = %v", e.val9))
+	e.LogInfo(fmt.Sprintf("val10 = %v", e.val10))
 }
 
 func (e *envDefInjectService) BeforeStop() {

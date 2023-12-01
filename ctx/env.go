@@ -71,7 +71,7 @@ var envTypes = map[reflect.Type]func(e *EnvValue) any{
 		return e.AsDuration()
 	},
 	reflect.TypeOf(make(map[string]*EnvValue)): func(e *EnvValue) any {
-		return e.AsMap()
+		return e.AsMapDefault()
 	},
 }
 
@@ -304,6 +304,24 @@ func (instance *EnvValue) AsDurationDefault(def time.Duration) time.Duration {
 
 func (instance *EnvValue) AsMap() map[string]*EnvValue {
 	instance.fatalIfNotExists()
+	result := make(map[string]*EnvValue)
+	for _, str := range strings.Split(instance.value, "|") {
+		parts := strings.Split(str, "=")
+		if len(parts) != 2 {
+			panic(instance.name + ": can't find key-value pair in part \"" + str + "\"")
+		}
+		result[parts[0]] = &EnvValue{
+			name:  instance.name + "(map)." + parts[0],
+			value: parts[1],
+		}
+	}
+	return result
+}
+
+func (instance *EnvValue) AsMapDefault() map[string]*EnvValue {
+	if !instance.IsPresent() {
+		return make(map[string]*EnvValue)
+	}
 	result := make(map[string]*EnvValue)
 	for _, str := range strings.Split(instance.value, "|") {
 		parts := strings.Split(str, "=")
