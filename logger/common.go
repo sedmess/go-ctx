@@ -24,14 +24,8 @@ const (
 	FATAL
 )
 
-const defaultLogLevel = INFO
-
 var mu = sync.Mutex{}
-var logLevel = int32(defaultLogLevel)
-
-func init() {
-	Init(defaultLogLevel)
-}
+var logLevel = int32(INFO)
 
 func Init(level int) {
 	mu.Lock()
