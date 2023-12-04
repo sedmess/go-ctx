@@ -3,6 +3,7 @@ package ctx
 const (
 	eUnhandledPanic = iota
 	eSuppressedPanic
+	eStop
 )
 
 type event struct {

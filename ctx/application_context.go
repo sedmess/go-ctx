@@ -46,7 +46,7 @@ type appContext struct {
 	eventBus chan event
 }
 
-func StartContextualizedApplication(packageServices ...[]any) {
+func StartContextualizedApplication(servicePackages ...[]any) {
 	defer func() {
 		globalLock.Lock()
 		defer globalLock.Unlock()
@@ -59,7 +59,7 @@ func StartContextualizedApplication(packageServices ...[]any) {
 		defer globalLock.Unlock()
 
 		ctxInstance := newApplicationContext()
-		for _, services := range packageServices {
+		for _, services := range servicePackages {
 			for _, service := range services {
 				ctxInstance.register(service)
 			}
@@ -88,6 +88,10 @@ func StartContextualizedApplication(packageServices ...[]any) {
 			case eSuppressedPanic:
 				panicPayload := e.payload.(panicPayload)
 				logger.Error(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+			case eStop:
+				logger.Info(ctxTag, "stop application event received")
+				ctxInstance.stop()
+				return
 			}
 		}
 	}
@@ -99,6 +103,17 @@ func GetService(serviceName string) any {
 
 	if ctx != nil {
 		return ctx.GetService(serviceName)
+	} else {
+		panic("no active context")
+	}
+}
+
+func StopContext() {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	if ctx != nil {
+		ctx.sendEvent(event{kind: eStop})
 	} else {
 		panic("no active context")
 	}
