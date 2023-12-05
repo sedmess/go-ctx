@@ -2,11 +2,8 @@ package ctx
 
 import (
 	"github.com/sedmess/go-ctx/logger"
-	"os"
-	"os/signal"
 	"runtime/debug"
 	"sync"
-	"syscall"
 )
 
 type state struct {
@@ -20,9 +17,6 @@ var stateInitialized = state{code: 2, name: "initialized"}
 var stateUsed = state{code: -1, name: "used"}
 
 const ctxTag = "CTX"
-
-var globalLock sync.Mutex
-var ctx *appContext
 
 type AppContext interface {
 	GetService(serviceName string) any
@@ -46,75 +40,6 @@ type appContext struct {
 	eventBus chan event
 }
 
-func StartContextualizedApplication(packageServices ...[]any) {
-	defer func() {
-		globalLock.Lock()
-		defer globalLock.Unlock()
-
-		ctx = nil
-	}()
-
-	ctxInstance := func() *appContext {
-		globalLock.Lock()
-		defer globalLock.Unlock()
-
-		ctxInstance := newApplicationContext()
-		for _, services := range packageServices {
-			for _, service := range services {
-				ctxInstance.register(service)
-			}
-		}
-
-		ctxInstance.start()
-
-		ctx = ctxInstance
-
-		return ctxInstance
-	}()
-
-	sigCh := make(chan os.Signal)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	for {
-		select {
-		case <-sigCh:
-			ctxInstance.stop()
-			return
-		case e := <-ctxInstance.eventBus:
-			switch e.kind {
-			case eUnhandledPanic:
-				ctxInstance.stop()
-				panicPayload := e.payload.(panicPayload)
-				logger.Fatal(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
-			case eSuppressedPanic:
-				panicPayload := e.payload.(panicPayload)
-				logger.Error(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
-			}
-		}
-	}
-}
-
-func GetService(serviceName string) any {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-
-	if ctx != nil {
-		return ctx.GetService(serviceName)
-	} else {
-		panic("no active context")
-	}
-}
-
-func sendEvent(e event) {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-
-	if ctx != nil {
-		ctx.sendEvent(e)
-	} else {
-		panic("no active context")
-	}
-}
-
 func newApplicationContext() *appContext {
 	ctx := appContext{}
 	ctx.state = stateNotInitialized
@@ -127,15 +52,7 @@ func newApplicationContext() *appContext {
 	return &ctx
 }
 
-func (ctx *appContext) registerMulti(serviceInstances []any) AppContext {
-	for _, serviceInstance := range serviceInstances {
-		ctx.register(serviceInstance)
-	}
-
-	return ctx
-}
-
-func (ctx *appContext) register(serviceInstance any) AppContext {
+func (ctx *appContext) register(serviceInstance any) {
 	ctx.Lock()
 	defer ctx.Unlock()
 
@@ -153,8 +70,6 @@ func (ctx *appContext) register(serviceInstance any) AppContext {
 	ctx.services[serviceName] = sInstance
 	ctx.states[serviceName] = stateNotInitialized
 	logger.Debug(ctxTag, "registered service ["+serviceName+"]")
-
-	return ctx
 }
 
 func (ctx *appContext) start() {
@@ -221,6 +136,27 @@ func (ctx *appContext) start() {
 	logger.Info(ctxTag, "=== ...started ===")
 
 	ctx.state = targetState
+}
+
+func (ctx *appContext) eventLoop(finishCh chan<- bool) {
+	defer func() { finishCh <- true }()
+	for {
+		e := <-ctx.eventBus
+		switch e.kind {
+		case eUnhandledPanic:
+			ctx.stop()
+			panicPayload := e.payload.(panicPayload)
+			logger.Fatal(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+			return
+		case eSuppressedPanic:
+			panicPayload := e.payload.(panicPayload)
+			logger.Error(ctxTag, "unhandled panic:", panicPayload.reason, "at\n", string(panicPayload.stack))
+		case eStop:
+			logger.Info(ctxTag, "stop application event received")
+			ctx.stop()
+			return
+		}
+	}
 }
 
 func (ctx *appContext) stop() {

@@ -34,7 +34,13 @@ func unwrap(service Service) any {
 func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
 	var sName string
 	sType := reflect.TypeOf(service)
+	if sType.Kind() != reflect.Pointer {
+		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
+	}
 	sTypeElem := sType.Elem()
+	if sTypeElem.Kind() != reflect.Struct {
+		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
+	}
 	if v, ok := service.(Named); ok {
 		sName = v.Name()
 	} else {

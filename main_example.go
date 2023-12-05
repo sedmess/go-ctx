@@ -469,7 +469,7 @@ func main() {
 		aService.Do()
 	}()
 
-	ctx.StartContextualizedApplication(
+	application := ctx.StartApplication(
 		[]any{
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{name: multiInstanceServiceNamePrefix + "1", custom: "I1"}, &multiInstanceService{name: multiInstanceServiceNamePrefix + "2", custom: "I2"}, &multiInstanceGetService{},
 			&reflectiveSingletonServiceImpl{}, r2,
@@ -484,4 +484,21 @@ func main() {
 		},
 		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
+
+	go func() {
+		application.Join()
+		println("application stopped 2")
+	}()
+
+	go func() {
+		<-time.After(time.Second * 60)
+		application.Stop()
+		application.Join()
+		println("application stopped 3")
+		application.Join()
+	}()
+
+	application.Join()
+
+	println("application stopped")
 }
