@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"github.com/sedmess/go-ctx/u"
 	"os"
 	"os/signal"
 	"sync"
@@ -99,6 +100,10 @@ func GetService(serviceName string) any {
 	} else {
 		panic("no active context")
 	}
+}
+
+func GetTypedService[T any]() T {
+	return GetService(u.GetInterfaceName[T]()).(T)
 }
 
 func sendEvent(e event) {

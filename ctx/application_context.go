@@ -208,7 +208,11 @@ func (ctx *appContext) GetService(serviceName string) any {
 
 	ctx.checkState(stateInitialized)
 
-	return unwrap(ctx.services[serviceName])
+	service, found := ctx.services[serviceName]
+	if !found {
+		panic("service " + serviceName + " not found")
+	}
+	return unwrap(service)
 }
 
 func (ctx *appContext) Stats() AppContextStats {
@@ -255,7 +259,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 			if serviceState == stateInitialized {
 				return unwrap(requestedServiceInstance)
 			} else if serviceState == stateInitialization {
-				panic("CTX: ERR: cyclic dependency between [" + serviceInstance.Name() + "] and [" + requestedServiceName + "]")
+				logger.Fatal(ctxTag, "cyclic dependency between ["+serviceInstance.Name()+"] and ["+requestedServiceName+"]")
 				return nil
 			} else if serviceState == stateNotInitialized {
 				ctx.initService(requestedServiceInstance)

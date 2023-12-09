@@ -98,3 +98,23 @@ func TestApplicationRestart(t *testing.T) {
 
 	application.Stop().Join()
 }
+
+type genericService[T any] struct {
+	data T
+}
+
+func (g *genericService[T]) AfterStart() {
+	println(g.data)
+}
+
+func (g *genericService[T]) BeforeStop() {
+}
+
+func Test_GenericService(t *testing.T) {
+	app := StartApplication(ServiceArray(&genericService[string]{data: "data"}))
+	defer func() { app.Stop().Join() }()
+
+	s1 := GetTypedService[*genericService[string]]()
+
+	println(s1.data)
+}
