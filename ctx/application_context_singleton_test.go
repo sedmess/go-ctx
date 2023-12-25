@@ -16,7 +16,7 @@ func TestStartApplicationBlocking(t *testing.T) {
 
 	notifier := newLifecycleNotifier()
 
-	application := StartApplication(ServiceArray(is1, is2, notifier))
+	application := CreateContextualizedApplication(PackageOf(is1, is2, notifier))
 
 	go application.Join()
 
@@ -45,7 +45,7 @@ func TestStartApplicationAsync(t *testing.T) {
 	is1 := &s1{}
 	is2 := &s2{}
 
-	application := StartApplication(ServiceArray(is1, is2))
+	application := CreateContextualizedApplication(PackageOf(is1, is2))
 
 	if is2.s1 != is1 {
 		t.Fail()
@@ -65,7 +65,7 @@ func TestApplicationRestart(t *testing.T) {
 	is1 := &s1{}
 	is2 := &s2{}
 
-	application := StartApplication(ServiceArray(is1, is2))
+	application := CreateContextualizedApplication(PackageOf(is1, is2))
 
 	code, name := is1.ctx.State()
 	if code != 2 || name != "initialized" {
@@ -85,7 +85,7 @@ func TestApplicationRestart(t *testing.T) {
 
 	oldCtx := is1.ctx
 
-	application = StartApplication(ServiceArray(is1, is2))
+	application = CreateContextualizedApplication(PackageOf(is1, is2))
 
 	if is1.ctx == oldCtx {
 		t.Fail()
@@ -111,7 +111,7 @@ func (g *genericService[T]) BeforeStop() {
 }
 
 func Test_GenericService(t *testing.T) {
-	app := StartApplication(ServiceArray(&genericService[string]{data: "data"}))
+	app := CreateContextualizedApplication(PackageOf(&genericService[string]{data: "data"}))
 	defer func() { app.Stop().Join() }()
 
 	s1 := GetTypedService[*genericService[string]]()

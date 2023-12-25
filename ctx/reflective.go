@@ -31,8 +31,7 @@ func unwrap(service Service) any {
 	}
 }
 
-func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
-	var sName string
+func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWrapper {
 	sType := reflect.TypeOf(service)
 	if sType.Kind() != reflect.Pointer {
 		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
@@ -41,28 +40,11 @@ func newReflectiveServiceWrapper(service any) *reflectiveServiceWrapper {
 	if sTypeElem.Kind() != reflect.Struct {
 		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
 	}
-	if v, ok := service.(Named); ok {
-		sName = v.Name()
+	var sName string
+	if name == "" {
+		sName = DefineServiceName(service)
 	} else {
-		var nameCandidateField *reflect.StructField
-		for i := 0; i < sTypeElem.NumField(); i++ {
-			sField := sTypeElem.Field(i)
-			if sField.Anonymous && sField.Type.Kind() == reflect.Interface {
-				if _, ok := sField.Tag.Lookup(tagImplement); ok {
-					if nameCandidateField == nil {
-						nameCandidateField = &sField
-					} else {
-						nameCandidateField = nil
-						break
-					}
-				}
-			}
-		}
-		if nameCandidateField != nil {
-			sName = nameCandidateField.Type.String()
-		} else {
-			sName = sType.String()
-		}
+		sName = name
 	}
 	return &reflectiveServiceWrapper{sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
 }
@@ -157,4 +139,35 @@ func setFieldValue(f reflect.StructField, v reflect.Value, value any) {
 
 	}
 	v.Set(reflect.ValueOf(value))
+}
+
+func DefineServiceName(service any) string {
+	var sName string
+	sType := reflect.TypeOf(service)
+	sTypeElem := sType.Elem()
+
+	if v, ok := service.(Named); ok {
+		sName = v.Name()
+	} else {
+		var nameCandidateField *reflect.StructField
+		for i := 0; i < sTypeElem.NumField(); i++ {
+			sField := sTypeElem.Field(i)
+			if sField.Anonymous && sField.Type.Kind() == reflect.Interface {
+				if _, ok := sField.Tag.Lookup(tagImplement); ok {
+					if nameCandidateField == nil {
+						nameCandidateField = &sField
+					} else {
+						nameCandidateField = nil
+						break
+					}
+				}
+			}
+		}
+		if nameCandidateField != nil {
+			sName = nameCandidateField.Type.String()
+		} else {
+			sName = sType.String()
+		}
+	}
+	return sName
 }
