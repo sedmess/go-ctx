@@ -469,8 +469,8 @@ func main() {
 		aService.Do()
 	}()
 
-	application := ctx.StartApplication(
-		[]any{
+	application := ctx.CreateContextualizedApplication(
+		ctx.PackageOf(
 			&aService{}, &bService{}, &timedService{}, &appLCService{}, connAService, newConnBService(), &multiInstanceService{name: multiInstanceServiceNamePrefix + "1", custom: "I1"}, &multiInstanceService{name: multiInstanceServiceNamePrefix + "2", custom: "I2"}, &multiInstanceGetService{},
 			&reflectiveSingletonServiceImpl{}, r2,
 			&panicService{},
@@ -481,8 +481,8 @@ func main() {
 			&envDefInjectService{},
 			&intRefServiceImpl{},
 			&intRef2Service{},
-		},
-		ctx.ServiceArray(ctx.ConnectServices(connAServiceName, connBServiceName)),
+		),
+		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
 
 	go func() {

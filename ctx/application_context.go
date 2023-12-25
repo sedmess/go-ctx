@@ -2,6 +2,7 @@ package ctx
 
 import (
 	"github.com/sedmess/go-ctx/logger"
+	"reflect"
 	"runtime/debug"
 	"sync"
 )
@@ -52,13 +53,13 @@ func newApplicationContext() *appContext {
 	return &ctx
 }
 
-func (ctx *appContext) register(serviceInstance any) {
+func (ctx *appContext) register(serviceInstance any, name string) {
 	ctx.Lock()
 	defer ctx.Unlock()
 
 	ctx.checkState(stateNotInitialized)
 
-	sInstance := newReflectiveServiceWrapper(serviceInstance)
+	sInstance := newReflectiveServiceWrapper(serviceInstance, name)
 
 	serviceName := sInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
@@ -69,7 +70,7 @@ func (ctx *appContext) register(serviceInstance any) {
 	}
 	ctx.services[serviceName] = sInstance
 	ctx.states[serviceName] = stateNotInitialized
-	logger.Debug(ctxTag, "registered service ["+serviceName+"]")
+	logger.Debug(ctxTag, "registered service ["+serviceName+"] of", reflect.TypeOf(serviceInstance).String())
 }
 
 func (ctx *appContext) start() {

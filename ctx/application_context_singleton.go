@@ -31,21 +31,39 @@ func (a *application) Join() {
 	a.mu.RUnlock()
 }
 
-// Deprecated: use ctx.StartApplicationBlocking
+// Deprecated: use ctx.CreateContextualizedApplication with .Join() call
 func StartContextualizedApplication(servicePackages ...[]any) {
-	StartApplication(servicePackages...).Join()
+	pkgs := make([]ServicePackage, len(servicePackages))
+	for i := range servicePackages {
+		pkgs[i] = PackageOf(servicePackages[i]...)
+	}
+	CreateContextualizedApplication(pkgs...).Join()
 }
 
+func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
+	return startApplication(servicePackages)
+}
+
+// Deprecated: use CreateContextualizedApplication instead
 func StartApplication(servicePackages ...[]any) Application {
+	pkgs := make([]ServicePackage, len(servicePackages))
+	for i := range servicePackages {
+		pkgs[i] = PackageOf(servicePackages[i]...)
+	}
+	return CreateContextualizedApplication(pkgs...)
+}
+
+func startApplication(servicePackages []ServicePackage) Application {
 	ctxInstance := func() *appContext {
 		globalLock.Lock()
 		defer globalLock.Unlock()
 
 		ctxInstance := newApplicationContext()
-		for _, services := range servicePackages {
-			for _, service := range services {
-				ctxInstance.register(service)
-			}
+
+		for _, pkg := range servicePackages {
+			pkg.ForEach(func(service any, name string) {
+				ctxInstance.register(service, name)
+			})
 		}
 
 		ctxInstance.start()
