@@ -434,6 +434,8 @@ func (i *intRef2Service) BeforeStop() {
 }
 
 func main() {
+	logger.Init(logger.DEBUG)
+
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
 	println(envMap["key1"].AsString())

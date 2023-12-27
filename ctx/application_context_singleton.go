@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"github.com/sedmess/go-ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
 	"os/signal"
@@ -90,12 +91,14 @@ func startApplication(servicePackages []ServicePackage) Application {
 		}()
 
 		osSignalCh := make(chan os.Signal)
-		signal.Notify(osSignalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+		signal.Notify(osSignalCh, os.Interrupt, os.Kill, syscall.SIGTERM)
 
 		select {
-		case <-osSignalCh:
+		case sSig := <-osSignalCh:
+			logger.Debug(ctxTag, "closing application by system signal:", sSig.String())
 			break
 		case <-app.stopCh:
+			logger.Debug(ctxTag, "closing application by stop signal")
 			break
 		}
 
