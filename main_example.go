@@ -433,6 +433,16 @@ func (i *intRef2Service) AfterStart() {
 func (i *intRef2Service) BeforeStop() {
 }
 
+type ConstructableService struct {
+	l   logger.Logger  `logger:""`
+	ctx ctx.AppContext `inject:"CTX"`
+}
+
+func (s *ConstructableService) Init() {
+	_, stateName := s.ctx.State()
+	s.l.Info("initialization with context state:", stateName)
+}
+
 func main() {
 	logger.Init(logger.DEBUG)
 
@@ -483,6 +493,7 @@ func main() {
 			&envDefInjectService{},
 			&intRefServiceImpl{},
 			&intRef2Service{},
+			&ConstructableService{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

@@ -105,6 +105,9 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	if v, ok := w.sRef.(Initializable); ok {
 		v.Init(serviceProvider)
 	}
+	if v, ok := w.sRef.(Constructable); ok {
+		v.Init()
+	}
 }
 
 func (w *reflectiveServiceWrapper) Name() string {

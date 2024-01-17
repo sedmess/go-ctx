@@ -30,6 +30,10 @@ type Initializable interface {
 	Init(serviceProvider ServiceProvider)
 }
 
+type Constructable interface {
+	Init()
+}
+
 type Named interface {
 	Name() string
 }
