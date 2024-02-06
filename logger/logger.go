@@ -12,6 +12,7 @@ type Logger interface {
 	LogInfo(msg ...any)
 	LogInfoLazy(dataProvider func() []any)
 	LogError(msg ...any)
+	LogIfError(when string, err error)
 	LogFatal(msg ...any)
 }
 
@@ -73,6 +74,12 @@ func (instance *logger) LogInfoLazy(dataProvider func() []any) {
 
 func (instance *logger) LogError(msg ...any) {
 	errorInt(instance.tag, msg...)
+}
+
+func (instance *logger) LogIfError(when string, err error) {
+	if err != nil {
+		errorInt(when+":", errorInt)
+	}
 }
 
 func (instance *logger) LogFatal(msg ...any) {
