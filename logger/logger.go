@@ -76,9 +76,9 @@ func (instance *logger) LogError(msg ...any) {
 	errorInt(instance.tag, msg...)
 }
 
-func (instance *logger) LogIfError(when string, err error) {
+func (instance *logger) LogIfError(whence string, err error) {
 	if err != nil {
-		errorInt(when+":", errorInt)
+		errorInt(whence+":", err)
 	}
 }
 
