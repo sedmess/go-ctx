@@ -371,9 +371,6 @@ func (instance *ctxInjectService) AfterStart() {
 	}()
 }
 
-func (instance *ctxInjectService) BeforeStop() {
-}
-
 func (instance *ctxInjectService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.ctx2 = serviceProvider.ByName("CTX").(ctx.AppContext)
 }

@@ -48,9 +48,18 @@ type Service interface {
 	Disposable
 }
 
-type LifecycleAware interface {
+type StartAware interface {
 	AfterStart()
+}
+
+type StopAware interface {
 	BeforeStop()
+}
+
+// Deprecated: use ctx.StartAware and ctx.StopAware
+type LifecycleAware interface {
+	StartAware
+	StopAware
 }
 
 type HealthReporter interface {

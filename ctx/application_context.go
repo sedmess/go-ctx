@@ -112,7 +112,7 @@ func (ctx *appContext) start() {
 	hasLCServices := false
 	for serviceName, serviceInstance := range ctx.services {
 		serviceInstance := unwrap(serviceInstance)
-		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
+		startAwareInstance, ok := serviceInstance.(StartAware)
 		if ok {
 			hasLCServices = true
 			wg.Add(1)
@@ -120,7 +120,7 @@ func (ctx *appContext) start() {
 				defer wg.Done()
 				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
 				runWithRecover(
-					lifecycleAwareInstance.AfterStart,
+					startAwareInstance.AfterStart,
 					func(reason any) {
 						logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", reason, "stacktrace:", string(debug.Stack()))
 					},
@@ -174,13 +174,13 @@ func (ctx *appContext) stop() {
 	for i := len(ctx.initOrder) - 1; i >= 0; i-- {
 		serviceName := ctx.initOrder[i]
 		serviceInstance := unwrap(ctx.services[serviceName])
-		lifecycleAwareInstance, ok := serviceInstance.(LifecycleAware)
+		stopAwareInstance, ok := serviceInstance.(StopAware)
 		if ok {
 			hasLCServices = true
 			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
 			runWithRecover(
 				func() {
-					lifecycleAwareInstance.BeforeStop()
+					stopAwareInstance.BeforeStop()
 				},
 				func(reason any) {
 					logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop()", reason, "stacktrace:", string(debug.Stack()))

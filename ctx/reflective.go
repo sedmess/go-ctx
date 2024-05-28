@@ -115,13 +115,13 @@ func (w *reflectiveServiceWrapper) Name() string {
 }
 
 func (w *reflectiveServiceWrapper) AfterStart() {
-	if v, ok := w.sRef.(LifecycleAware); ok {
+	if v, ok := w.sRef.(StartAware); ok {
 		v.AfterStart()
 	}
 }
 
 func (w *reflectiveServiceWrapper) BeforeStop() {
-	if v, ok := w.sRef.(LifecycleAware); ok {
+	if v, ok := w.sRef.(StopAware); ok {
 		v.BeforeStop()
 	}
 }
