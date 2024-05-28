@@ -370,7 +370,7 @@ func GetEnv(name string) *EnvValue {
 	var set bool
 	value, set = os.LookupEnv(name)
 	if !set && properties != nil {
-		value = properties[name]
+		value, set = properties[name]
 	}
 	return &EnvValue{name: name, set: set, value: value}
 }
