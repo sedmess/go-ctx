@@ -443,6 +443,21 @@ func (s *ConstructableService) Init() {
 	s.l.Info("initialization with context state:", stateName)
 }
 
+type defEnvValue struct {
+	val string `env:"UNDEFINED_ENV_VALUE" envDef:""`
+}
+
+func (s *defEnvValue) Init() {
+	logger.Info("DEF_VAL", "val =", s.val)
+}
+
+func (s *defEnvValue) AfterStart() {
+	logger.Info("DEF_VAL", "val =", ctx.GetEnv("UNDEFINED_ENV_VALUE"))
+}
+
+func (s *defEnvValue) BeforeStop() {
+}
+
 func main() {
 	logger.Init(logger.DEBUG)
 
@@ -494,6 +509,7 @@ func main() {
 			&intRefServiceImpl{},
 			&intRef2Service{},
 			&ConstructableService{},
+			&defEnvValue{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

@@ -76,8 +76,8 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 				logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name)
 				setFieldValue(sField, sValue, env)
 			} else {
-				defValue, _ := sField.Tag.Lookup(tagDefEnv)
-				if eValue, ok := env.asType(sFieldType, defValue); ok {
+				defValue, hasDef := sField.Tag.Lookup(tagDefEnv)
+				if eValue, ok := env.asType(sFieldType, hasDef, defValue); ok {
 					logger.Debug(w.name, "inject EnvValue", value, "into field", sField.Name, "with type", sFieldType.String())
 					setFieldValue(sField, sValue, eValue)
 				} else {

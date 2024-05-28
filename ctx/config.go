@@ -77,6 +77,7 @@ var envTypes = map[reflect.Type]func(e *EnvValue) any{
 
 type EnvValue struct {
 	name  string
+	set   bool
 	value string
 }
 
@@ -85,7 +86,7 @@ func (instance *EnvValue) Name() string {
 }
 
 func (instance *EnvValue) IsPresent() bool {
-	return len(instance.value) != 0
+	return instance.set
 }
 
 func (instance *EnvValue) AsString() string {
@@ -312,6 +313,7 @@ func (instance *EnvValue) AsMap() map[string]*EnvValue {
 		}
 		result[parts[0]] = &EnvValue{
 			name:  instance.name + "(map)." + parts[0],
+			set:   true,
 			value: parts[1],
 		}
 	}
@@ -330,14 +332,16 @@ func (instance *EnvValue) AsMapDefault() map[string]*EnvValue {
 		}
 		result[parts[0]] = &EnvValue{
 			name:  instance.name + "(map)." + parts[0],
+			set:   true,
 			value: parts[1],
 		}
 	}
 	return result
 }
 
-func (instance *EnvValue) asType(rType reflect.Type, def string) (any, bool) {
-	if def != "" && !instance.IsPresent() {
+func (instance *EnvValue) asType(rType reflect.Type, hasDef bool, def string) (any, bool) {
+	if hasDef && !instance.IsPresent() {
+		instance.set = true
 		instance.value = def
 	}
 	if fn, found := envTypes[rType]; found {
@@ -363,11 +367,12 @@ func (instance *EnvValue) String() string {
 
 func GetEnv(name string) *EnvValue {
 	var value string
-	value = os.Getenv(name)
-	if len(value) == 0 && properties != nil {
+	var set bool
+	value, set = os.LookupEnv(name)
+	if !set && properties != nil {
 		value = properties[name]
 	}
-	return &EnvValue{name: name, value: value}
+	return &EnvValue{name: name, set: set, value: value}
 }
 
 func GetEnvCustom(custom string, name string) *EnvValue {
