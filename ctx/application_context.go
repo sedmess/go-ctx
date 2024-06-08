@@ -289,7 +289,7 @@ func (ctx *appContext) disposeServices() {
 		if state == stateInitialized {
 			wg.Add(1)
 			logger.Debug(ctxTag, "dispose service ["+serviceName+"]")
-			go func(serviceName string) {
+			go func(serviceName string, serviceInstance Service) {
 				defer wg.Done()
 				runWithRecover(
 					func() {
@@ -303,7 +303,7 @@ func (ctx *appContext) disposeServices() {
 						logger.Error(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
 					},
 				)
-			}(serviceName)
+			}(serviceName, serviceInstance)
 		}
 	}
 	wg.Wait()

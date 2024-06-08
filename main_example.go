@@ -455,6 +455,16 @@ func (s *defEnvValue) AfterStart() {
 func (s *defEnvValue) BeforeStop() {
 }
 
+type slowDisposingService struct {
+	l logger.Logger `logger:""`
+}
+
+func (s *slowDisposingService) Dispose() {
+	s.l.Info("start disposing...")
+	<-time.After(time.Second * 10)
+	s.l.Info("...disposed")
+}
+
 func main() {
 	logger.Init(logger.DEBUG)
 
@@ -507,6 +517,7 @@ func main() {
 			&intRef2Service{},
 			&ConstructableService{},
 			&defEnvValue{},
+			&slowDisposingService{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
