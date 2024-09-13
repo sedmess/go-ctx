@@ -8,6 +8,7 @@ import (
 
 const tagLogger = "logger"
 const tagImplement = "implement"
+const tagImplementation = "implementation"
 const tagEnv = "env"
 const tagDefEnv = "envDef"
 const tagInject = "inject"
@@ -157,6 +158,14 @@ func DefineServiceName(service any) string {
 			sField := sTypeElem.Field(i)
 			if sField.Anonymous && sField.Type.Kind() == reflect.Interface {
 				if _, ok := sField.Tag.Lookup(tagImplement); ok {
+					if nameCandidateField == nil {
+						nameCandidateField = &sField
+					} else {
+						nameCandidateField = nil
+						break
+					}
+				}
+				if _, ok := sField.Tag.Lookup(tagImplementation); ok {
 					if nameCandidateField == nil {
 						nameCandidateField = &sField
 					} else {

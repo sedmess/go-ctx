@@ -411,7 +411,7 @@ type intRefService interface {
 }
 
 type intRefServiceImpl struct {
-	intRefService `implement:""`
+	intRefService `implementation:""`
 	l             logger.Logger `logger:""`
 }
 
