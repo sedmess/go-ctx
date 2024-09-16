@@ -12,6 +12,9 @@ import (
 
 const defaultPropertiesFileName = ".env"
 
+const tagEnv = "env"
+const tagDefEnv = "envDef"
+
 var properties map[string]string
 
 func init() {
@@ -394,5 +397,41 @@ func getEnvCustom(custom string, name string, allowDefault bool) *EnvValue {
 		return GetEnv(name)
 	} else {
 		return env
+	}
+}
+
+func InjectEnv(target any) {
+	sType := reflect.TypeOf(target)
+	if sType.Kind() != reflect.Pointer {
+		logger.Fatal(ctxTag, sType.String(), "must be pointer to a struct")
+	}
+	sTypeElem := sType.Elem()
+	if sTypeElem.Kind() != reflect.Struct {
+		logger.Fatal(ctxTag, sType.String(), "must be pointer to a struct")
+	}
+	sValueElem := reflect.ValueOf(target).Elem()
+
+	for i := 0; i < sTypeElem.NumField(); i++ {
+		sField := sTypeElem.Field(i)
+		sValue := sValueElem.Field(i)
+		sFieldType := sField.Type
+
+		value, ok := sField.Tag.Lookup(tagEnv)
+		if ok && value != "" {
+			env := GetEnv(value)
+			if sField.Type.AssignableTo(reflect.TypeOf((*EnvValue)(nil))) {
+				logger.Debug(ctxTag, "inject EnvValue", value, "into", sType.String()+"."+sField.Name)
+				setFieldValue(sField, sValue, env)
+			} else {
+				defValue, hasDef := sField.Tag.Lookup(tagDefEnv)
+				if eValue, ok := env.asType(sFieldType, hasDef, defValue); ok {
+					logger.Debug(ctxTag, "inject EnvValue", value, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String())
+					setFieldValue(sField, sValue, eValue)
+				} else {
+					logger.Fatal(ctxTag, "can't inject EnvValue", value, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String(), "- type not supported")
+				}
+			}
+			continue
+		}
 	}
 }
