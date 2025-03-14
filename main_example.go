@@ -465,6 +465,18 @@ func (s *slowDisposingService) Dispose() {
 	s.l.Info("...disposed")
 }
 
+type envCustomService struct {
+	key100 int `env:"KEY100"`
+	key101 int `env:"KEY101"`
+	key103 int `env:"KEY103"`
+}
+
+func (s *envCustomService) Init() {
+	println("key100 =", s.key100)
+	println("key101 =", s.key101)
+	println("key103 =", s.key103)
+}
+
 func main() {
 	logger.Init(logger.DEBUG)
 
@@ -499,6 +511,7 @@ func main() {
 	}()
 
 	go func() {
+		<-time.After(5 * time.Second)
 		aService := ctx.GetService(aServiceName).(*aService)
 		aService.Do()
 	}()
@@ -518,6 +531,7 @@ func main() {
 			&ConstructableService{},
 			&defEnvValue{},
 			&slowDisposingService{},
+			&envCustomService{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

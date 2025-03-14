@@ -11,6 +11,7 @@ import (
 )
 
 const defaultPropertiesFileName = ".env"
+const defaultCustomPropertiesFileName = ".env_custom"
 
 const tagEnv = "env"
 const tagDefEnv = "envDef"
@@ -18,25 +19,33 @@ const tagDefEnv = "envDef"
 var properties map[string]string
 
 func init() {
-	file, err := os.Open(defaultPropertiesFileName)
+	envFileMap := make(map[string]string)
+
+	readFile(defaultPropertiesFileName, envFileMap)
+	readFile(defaultCustomPropertiesFileName, envFileMap)
+
+	properties = envFileMap
+}
+
+func readFile(path string, properties map[string]string) {
+	file, err := os.Open(path)
 	if err != nil {
-		properties = nil
+		return
 	}
 
 	defer func(file *os.File) {
 		_ = file.Close()
 	}(file)
 
-	envFileMap := make(map[string]string)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		substrs := strings.SplitN(scanner.Text(), "=", 2)
 		if len(substrs) < 2 {
 			continue
 		}
-		envFileMap[substrs[0]] = substrs[1]
+		properties[substrs[0]] = substrs[1]
 	}
-	properties = envFileMap
+
 }
 
 var envTypes = map[reflect.Type]func(e *EnvValue) any{
