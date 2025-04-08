@@ -477,6 +477,33 @@ func (s *envCustomService) Init() {
 	println("key103 =", s.key103)
 }
 
+type newTags struct {
+	l1 logger.Logger `ctx:""`
+	l2 logger.Logger `ctx:"named_logger_2"`
+	l3 logger.Logger `ctx:"logger"`
+	l4 logger.Logger `ctx:"logger(named_logger_4)"`
+
+	envCustomService1 *envCustomService `ctx:""`
+	a1                *aService         `ctx:"a_service"`
+
+	envCustomService2 *envCustomService `ctx:"inject"`
+	a2                *aService         `ctx:"inject(a_service)"`
+
+	key100 int           `env:"KEY100"`
+	key999 time.Duration `env:"KEY999=999s"`
+	key0   string        `env:"KEY0="`
+}
+
+func (s *newTags) Init() {
+	s.l1.Info("init tags", s.key100, s.key999)
+	s.l2.Info("init tags", s.key100, s.key999)
+	s.l3.Info("init tags", s.key100, s.key999)
+	s.l4.Info("init tags", s.key100, s.key999)
+	s.l1.Info(s.envCustomService1 == s.envCustomService2)
+	s.l1.Info(s.a1 == s.a2)
+	s.l1.Info("key0 =", s.key0)
+}
+
 func main() {
 	logger.Init(logger.DEBUG)
 
@@ -532,6 +559,7 @@ func main() {
 			&defEnvValue{},
 			&slowDisposingService{},
 			&envCustomService{},
+			&newTags{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

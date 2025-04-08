@@ -5,11 +5,6 @@ import (
 	"reflect"
 )
 
-const tagLogger = "logger"
-const tagImplement = "implement"
-const tagImplementation = "implementation"
-const tagInject = "inject"
-
 type serviceWrapper interface {
 	service() any
 }
@@ -48,36 +43,52 @@ func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWra
 }
 
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
+	injectLoggerFn := func(field reflect.StructField, value reflect.Value, name string) {
+		var l logger.Logger
+		if name != "" {
+			logger.Debug(w.name, "inject logger \""+name+"\" into field", field.Name)
+			l = logger.NewWithTag(name)
+		} else {
+			logger.Debug(w.name, "inject default logger into field", field.Name)
+			l = logger.New(w)
+		}
+		setFieldValue(field, value, l)
+	}
+	injectServiceFn := func(field reflect.StructField, value reflect.Value, name string) {
+		var service any
+		if name != "" {
+			logger.Debug(w.name, "lookup dependency", name, "for field", field.Name)
+			service = serviceProvider.ByName(name)
+		} else {
+			logger.Debug(w.name, "lookup dependency of type", field.Type.String(), "for field", field.Name)
+			service = serviceProvider.byReflectType(field.Type)
+		}
+		setFieldValue(field, value, service)
+	}
+
 	for i := 0; i < w.sType.NumField(); i++ {
 		sField := w.sType.Field(i)
 		sValue := w.sValue.Field(i)
 
-		sFieldType := sField.Type
+		tag := defineReflectionTag(sField.Tag)
 
-		value, ok := sField.Tag.Lookup(tagLogger)
-		if ok {
-			logger.Debug(w.name, "inject logger into field", sField.Name)
-			var l logger.Logger
-			if value != "" {
-				l = logger.NewWithTag(value)
-			} else {
-				l = logger.New(w)
-			}
-			setFieldValue(sField, sValue, l)
+		if tag.log {
+			injectLoggerFn(sField, sValue, tag.logName)
 			continue
 		}
 
-		value, ok = sField.Tag.Lookup(tagInject)
-		if ok {
-			var service any
-			if value != "" {
-				logger.Debug(w.name, "lookup dependency", value, "for field", sField.Name)
-				service = serviceProvider.ByName(value)
+		if tag.inject {
+			injectServiceFn(sField, sValue, tag.injectName)
+			continue
+		}
+
+		if tag.auto {
+			// auto mode
+			if sField.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) {
+				injectLoggerFn(sField, sValue, tag.name)
 			} else {
-				logger.Debug(w.name, "lookup dependency of type", sFieldType.String(), "for field", sField.Name)
-				service = serviceProvider.byReflectType(sFieldType)
+				injectServiceFn(sField, sValue, tag.name)
 			}
-			setFieldValue(sField, sValue, service)
 			continue
 		}
 	}

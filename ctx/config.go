@@ -13,9 +13,6 @@ import (
 const defaultPropertiesFileName = ".env"
 const defaultCustomPropertiesFileName = ".env_custom"
 
-const tagEnv = "env"
-const tagDefEnv = "envDef"
-
 var properties map[string]string
 
 func init() {
@@ -425,19 +422,18 @@ func InjectEnv(target any) {
 		sValue := sValueElem.Field(i)
 		sFieldType := sField.Type
 
-		value, ok := sField.Tag.Lookup(tagEnv)
-		if ok && value != "" {
-			env := GetEnv(value)
+		tag := defineReflectionTag(sField.Tag)
+		if tag.env != "" {
+			env := GetEnv(tag.env)
 			if sField.Type.AssignableTo(reflect.TypeOf((*EnvValue)(nil))) {
-				logger.Debug(ctxTag, "inject EnvValue", value, "into", sType.String()+"."+sField.Name)
+				logger.Debug(ctxTag, "inject EnvValue", tag.env, "into", sType.String()+"."+sField.Name)
 				setFieldValue(sField, sValue, env)
 			} else {
-				defValue, hasDef := sField.Tag.Lookup(tagDefEnv)
-				if eValue, ok := env.asType(sFieldType, hasDef, defValue); ok {
-					logger.Debug(ctxTag, "inject EnvValue", value, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String())
+				if eValue, ok := env.asType(sFieldType, tag.envDef, tag.envDefValue); ok {
+					logger.Debug(ctxTag, "inject EnvValue", tag.env, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String())
 					setFieldValue(sField, sValue, eValue)
 				} else {
-					logger.Fatal(ctxTag, "can't inject EnvValue", value, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String(), "- type not supported")
+					logger.Fatal(ctxTag, "can't inject EnvValue", tag.env, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String(), "- type not supported")
 				}
 			}
 			continue
