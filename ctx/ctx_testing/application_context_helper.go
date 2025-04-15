@@ -2,7 +2,7 @@ package ctx_testing
 
 import (
 	"github.com/sedmess/go-ctx/ctx"
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
 	"reflect"
@@ -10,10 +10,6 @@ import (
 )
 
 const ctxTag = "TESTING_CTX"
-
-func init() {
-	logger.Init(logger.DEBUG)
-}
 
 type TestingApplication interface {
 	WithTestingService(service ctx.NamedService) TestingApplication

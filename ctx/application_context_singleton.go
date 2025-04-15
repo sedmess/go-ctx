@@ -1,7 +1,7 @@
 package ctx
 
 import (
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
 	"os/signal"
@@ -42,16 +42,9 @@ func StartContextualizedApplication(servicePackages ...[]any) {
 }
 
 func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
+	InitProperties()
+	InitSlog()
 	return startApplication(servicePackages)
-}
-
-// Deprecated: use CreateContextualizedApplication instead
-func StartApplication(servicePackages ...[]any) Application {
-	pkgs := make([]ServicePackage, len(servicePackages))
-	for i := range servicePackages {
-		pkgs[i] = PackageOf(servicePackages[i]...)
-	}
-	return CreateContextualizedApplication(pkgs...)
 }
 
 func startApplication(servicePackages []ServicePackage) Application {

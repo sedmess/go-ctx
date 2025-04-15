@@ -10,26 +10,23 @@ type AppContextStats interface {
 }
 
 type ServiceDescriptor struct {
-	Name             string
-	Type             reflect.Type
-	IsLifecycleAware bool //Deprecated
-	IsStartAware     bool
-	IsStopAware      bool
-	Dependencies     []string
+	Name         string
+	Type         reflect.Type
+	IsStartAware bool
+	IsStopAware  bool
+	Dependencies []string
 }
 
 func createDescriptorFor(service Service) ServiceDescriptor {
 	sInstance := unwrap(service)
 	_, isStartAware := sInstance.(StartAware)
 	_, isStopAware := sInstance.(StopAware)
-	_, isLifecycleAware := sInstance.(LifecycleAware)
 	return ServiceDescriptor{
-		Name:             service.Name(),
-		Type:             reflect.TypeOf(sInstance),
-		IsLifecycleAware: isLifecycleAware,
-		IsStartAware:     isStartAware,
-		IsStopAware:      isStopAware,
-		Dependencies:     make([]string, 0),
+		Name:         service.Name(),
+		Type:         reflect.TypeOf(sInstance),
+		IsStartAware: isStartAware,
+		IsStopAware:  isStopAware,
+		Dependencies: make([]string, 0),
 	}
 }
 

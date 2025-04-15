@@ -8,16 +8,11 @@ import (
 )
 
 const (
-	ctxReflectionTag     = "ctx"
-	ctxEnvTag            = "env"
-	ctxLoggerTag         = "logger"         // Deprecated: use ctxReflectionTag
-	ctxImplementTag      = "implement"      // Deprecated: use ctxReflectionTag
-	ctxImplementationTag = "implementation" // Deprecated: use ctxReflectionTag
-	ctxInjectTag         = "inject"         // Deprecated: use ctxReflectionTag
-	ctxEnvDefTag         = "envDef"         // Deprecated: use ctxEnvTag
+	ctxReflectionTag = "ctx"
+	ctxEnvTag        = "env"
 )
 
-var ctxReflectionProp = regexp.MustCompile("([a-z]+)(\\((.+)\\))?")
+var ctxReflectionProp = regexp.MustCompile("([A-z]+)(\\((.+)\\))?")
 
 type reflectionTag struct {
 	auto        bool
@@ -63,19 +58,6 @@ func defineReflectionTag(tag reflect.StructTag) (rTag reflectionTag) {
 				}
 			}
 		}
-	} else {
-		if loggerTag, ok := tag.Lookup(ctxLoggerTag); ok {
-			rTag.log = true
-			rTag.logName = loggerTag
-		}
-
-		if hasTag(tag, ctxImplementTag) || hasTag(tag, ctxImplementationTag) {
-			rTag.impl = true
-		}
-		if injectTag, ok := tag.Lookup(ctxInjectTag); ok {
-			rTag.inject = true
-			rTag.injectName = injectTag
-		}
 	}
 	if envTag, ok := tag.Lookup(ctxEnvTag); ok {
 		envName, envValue, found := strings.Cut(envTag, "=")
@@ -83,19 +65,9 @@ func defineReflectionTag(tag reflect.StructTag) (rTag reflectionTag) {
 		if found {
 			rTag.envDef = true
 			rTag.envDefValue = envValue
-		} else {
-			if defTag, ok := tag.Lookup(ctxEnvDefTag); ok {
-				rTag.envDef = true
-				rTag.envDefValue = defTag
-			}
 		}
 	}
 	return rTag
-}
-
-func hasTag(sTag reflect.StructTag, tagName string) bool {
-	_, ok := sTag.Lookup(tagName)
-	return ok
 }
 
 func setFieldValue(f reflect.StructField, v reflect.Value, value any) {

@@ -12,7 +12,7 @@ type AService interface {
 }
 
 type aService struct {
-	AService `implement:""`
+	AService `ctx:""`
 	data     string
 }
 
@@ -21,7 +21,7 @@ func (instance *aService) Data() string {
 }
 
 type BService struct {
-	aService AService `inject:""`
+	aService AService `ctx:""`
 	value    string   `env:"TEST_ENV"`
 }
 
@@ -37,6 +37,8 @@ func (stub *aServiceStub) Data() string {
 }
 
 func TestMain(m *testing.M) {
+	_ = os.Setenv("SLOG_HANDLER", "legacy")
+	_ = os.Setenv("SLOG_LEVEL", "debug")
 	os.Exit(
 		CreateTestingApplication(ctx.PackageOf(
 			&aService{data: "test_a_value"},

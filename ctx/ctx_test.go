@@ -1,7 +1,6 @@
 package ctx
 
 import (
-	"github.com/sedmess/go-ctx/logger"
 	"os"
 	"testing"
 )
@@ -25,7 +24,8 @@ func (l *lifecycleNotifier) BeforeStop() {
 }
 
 func TestMain(m *testing.M) {
-	logger.Init(logger.DEBUG)
+	_ = os.Setenv("SLOG_HANDLER", "legacy")
+	_ = os.Setenv("SLOG_LEVEL", "debug")
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }

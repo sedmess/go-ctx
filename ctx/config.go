@@ -2,7 +2,7 @@ package ctx
 
 import (
 	"bufio"
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
 	"os"
 	"reflect"
 	"strconv"
@@ -15,7 +15,11 @@ const defaultCustomPropertiesFileName = ".env_custom"
 
 var properties map[string]string
 
-func init() {
+func InitProperties() {
+	if properties != nil {
+		return
+	}
+
 	envFileMap := make(map[string]string)
 
 	readFile(defaultPropertiesFileName, envFileMap)

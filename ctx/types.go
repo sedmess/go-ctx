@@ -56,12 +56,6 @@ type StopAware interface {
 	BeforeStop()
 }
 
-// Deprecated: use ctx.StartAware and ctx.StopAware
-type LifecycleAware interface {
-	StartAware
-	StopAware
-}
-
 type HealthReporter interface {
 	Health() health.ServiceHealth
 }

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/health"
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -71,7 +72,7 @@ type timedService struct {
 }
 
 func (instance *timedService) Init(_ ctx.ServiceProvider) {
-	instance.l = logger.New(instance)
+	instance.l = logger.New(instance.Name())
 
 	instance.l.Info("initialized")
 }
@@ -234,8 +235,8 @@ type ReflectiveSingletonService interface {
 
 type reflectiveSingletonServiceImpl struct {
 	ReflectiveSingletonService
-	L logger.Logger `logger:"singleton"`
-	A *aService     `inject:"a_service"`
+	L logger.Logger `ctx:"singleton"`
+	A *aService     `ctx:"a_service"`
 }
 
 func (instance *reflectiveSingletonServiceImpl) Name() string {
@@ -244,9 +245,7 @@ func (instance *reflectiveSingletonServiceImpl) Name() string {
 
 func (instance *reflectiveSingletonServiceImpl) AfterStart() {
 	instance.A.Do()
-	instance.L.InfoLazy(func() []any {
-		return []any{"A =", instance.A.Name()}
-	})
+	instance.L.Info("A =", instance.A.Name())
 }
 
 func (instance *reflectiveSingletonServiceImpl) BeforeStop() {
@@ -258,8 +257,8 @@ func (instance *reflectiveSingletonServiceImpl) Do() string {
 }
 
 type reflectiveSingletonService2 struct {
-	l logger.Logger              `logger:""`
-	d ReflectiveSingletonService `inject:""`
+	l logger.Logger              `ctx:""`
+	d ReflectiveSingletonService `ctx:""`
 }
 
 func (instance *reflectiveSingletonService2) Do() {
@@ -280,7 +279,7 @@ func (p *panicService) BeforeStop() {
 }
 
 type anonymousService struct {
-	L logger.Logger `logger:""`
+	L logger.Logger `ctx:""`
 }
 
 func (as *anonymousService) Do(who string) {
@@ -288,8 +287,8 @@ func (as *anonymousService) Do(who string) {
 }
 
 type asConsumerService struct {
-	AnonymousService *anonymousService `inject:""`
-	L                logger.Logger     `logger:""`
+	AnonymousService *anonymousService `ctx:""`
+	L                logger.Logger     `ctx:""`
 }
 
 func (a *asConsumerService) Init(ctx.ServiceProvider) {
@@ -305,35 +304,17 @@ func (a *asConsumerService) BeforeStop() {
 }
 
 type loggerDemoService struct {
-	l      logger.Logger `logger:""`
-	lNamed logger.Logger `logger:"named-logger"`
+	l      logger.Logger `ctx:""`
+	lNamed logger.Logger `ctx:"named-logger"`
 }
 
 func (l *loggerDemoService) AfterStart() {
 	l.l.Debug("debug demo", 1)
-	l.l.DebugLazy(func() []any {
-		return []any{"debug demo", 2}
-	})
 	l.lNamed.Debug("debug demo", 3)
-	l.lNamed.DebugLazy(func() []any {
-		return []any{"debug demo", 4}
-	})
 	logger.Debug("tag-logger", "debug demo", 5)
-	logger.DebugLazy("tag-logger", func() []any {
-		return []any{"debug demo", 6}
-	})
 	l.l.Info("info demo", 1)
-	l.l.InfoLazy(func() []any {
-		return []any{"info demo", 2}
-	})
 	l.lNamed.Info("info demo", 3)
-	l.lNamed.InfoLazy(func() []any {
-		return []any{"info demo", 4}
-	})
 	logger.Info("tag-logger", "info demo", 5)
-	logger.InfoLazy("tag-logger", func() []any {
-		return []any{"info demo", 6}
-	})
 
 	l.l.Error("error demo", 1)
 	l.lNamed.Error("error demo", 2)
@@ -344,7 +325,7 @@ func (l *loggerDemoService) BeforeStop() {
 }
 
 type envInjectDemoService struct {
-	l                logger.Logger            `logger:""`
+	l                logger.Logger            `ctx:""`
 	envValue         *ctx.EnvValue            `env:"DURATION"`
 	envValueDuration time.Duration            `env:"DURATION"`
 	envValueString   string                   `env:"DURATION"`
@@ -359,8 +340,8 @@ func (e *envInjectDemoService) BeforeStop() {
 }
 
 type ctxInjectService struct {
-	l    logger.Logger  `logger:""`
-	ctx1 ctx.AppContext `inject:"CTX"`
+	l    logger.Logger  `ctx:""`
+	ctx1 ctx.AppContext `ctx:"CTX"`
 	ctx2 ctx.AppContext
 }
 
@@ -376,13 +357,13 @@ func (instance *ctxInjectService) Init(serviceProvider ctx.ServiceProvider) {
 }
 
 type envDefInjectService struct {
-	logger.Logger `logger:""`
-	val1          time.Duration            `env:"DEF_VALUE_TEST1" envDef:"10s"`
-	val2          string                   `env:"DEF_VALUE_TEST2" envDef:"str"`
-	val3          map[string]*ctx.EnvValue `env:"DEF_VALUE_TEST3" envDef:"k1=1,2,3|k2=123|k3=10s"`
-	val4          string                   `env:"DURATION" envDef:"0s"`
+	logger.Logger `ctx:""`
+	val1          time.Duration            `env:"DEF_VALUE_TEST1=10s"`
+	val2          string                   `env:"DEF_VALUE_TEST2=str"`
+	val3          map[string]*ctx.EnvValue `env:"DEF_VALUE_TEST3=k1=1,2,3|k2=123|k3=10s"`
+	val4          string                   `env:"DURATION=0s"`
 	val5          map[string]bool          `env:"STR_SET"`
-	val6          map[string]bool          `env:"STR_SET2" envDef:"s3,s2,s1"`
+	val6          map[string]bool          `env:"STR_SET2=s3,s2,s1"`
 	val7          map[int]bool             `env:"INT_SET"`
 	val8          map[int64]bool           `env:"INT_SET"`
 	val9          map[string]bool          `env:"UNDEFINED_SET"`
@@ -390,17 +371,17 @@ type envDefInjectService struct {
 }
 
 func (e *envDefInjectService) AfterStart() {
-	e.LogInfo("val1 =", e.val1.String())
-	e.LogInfo("val2 =", e.val2)
-	e.LogInfo("val3.k1 =", e.val3["k1"].AsStringArray())
-	e.LogInfo("val3.k3 =", e.val3["k2"].AsInt64())
-	e.LogInfo("val3.k1 =", e.val3["k3"].AsDuration().String())
-	e.LogInfo(fmt.Sprintf("val5 = %v", e.val5))
-	e.LogInfo(fmt.Sprintf("val6 = %v", e.val6))
-	e.LogInfo(fmt.Sprintf("val7 = %v", e.val7))
-	e.LogInfo(fmt.Sprintf("val8 = %v", e.val8))
-	e.LogInfo(fmt.Sprintf("val9 = %v", e.val9))
-	e.LogInfo(fmt.Sprintf("val10 = %v", e.val10))
+	e.Info("val1 =", e.val1.String())
+	e.Info("val2 =", e.val2)
+	e.Info("val3.k1 =", e.val3["k1"].AsStringArray())
+	e.Info("val3.k3 =", e.val3["k2"].AsInt64())
+	e.Info("val3.k1 =", e.val3["k3"].AsDuration().String())
+	e.Info(fmt.Sprintf("val5 = %v", e.val5))
+	e.Info(fmt.Sprintf("val6 = %v", e.val6))
+	e.Info(fmt.Sprintf("val7 = %v", e.val7))
+	e.Info(fmt.Sprintf("val8 = %v", e.val8))
+	e.Info(fmt.Sprintf("val9 = %v", e.val9))
+	e.Info(fmt.Sprintf("val10 = %v", e.val10))
 }
 
 func (e *envDefInjectService) BeforeStop() {
@@ -411,8 +392,8 @@ type intRefService interface {
 }
 
 type intRefServiceImpl struct {
-	intRefService `implementation:""`
-	l             logger.Logger `logger:""`
+	intRefService `ctx:"impl"`
+	l             logger.Logger `ctx:""`
 }
 
 func (i *intRefServiceImpl) DoSomething() {
@@ -420,7 +401,7 @@ func (i *intRefServiceImpl) DoSomething() {
 }
 
 type intRef2Service struct {
-	srv intRefService `inject:""`
+	srv intRefService `ctx:""`
 }
 
 func (i *intRef2Service) AfterStart() {
@@ -431,8 +412,8 @@ func (i *intRef2Service) BeforeStop() {
 }
 
 type ConstructableService struct {
-	l   logger.Logger  `logger:""`
-	ctx ctx.AppContext `inject:"CTX"`
+	l   logger.Logger  `ctx:""`
+	ctx ctx.AppContext `ctx:"inject(CTX)"`
 }
 
 func (s *ConstructableService) Init() {
@@ -441,7 +422,7 @@ func (s *ConstructableService) Init() {
 }
 
 type defEnvValue struct {
-	val string `env:"UNDEFINED_ENV_VALUE" envDef:""`
+	val string `env:"UNDEFINED_ENV_VALUE="`
 }
 
 func (s *defEnvValue) Init() {
@@ -456,7 +437,7 @@ func (s *defEnvValue) BeforeStop() {
 }
 
 type slowDisposingService struct {
-	l logger.Logger `logger:""`
+	l logger.Logger `ctx:""`
 }
 
 func (s *slowDisposingService) Dispose() {
@@ -504,8 +485,25 @@ func (s *newTags) Init() {
 	s.l1.Info("key0 =", s.key0)
 }
 
+type slogExample struct {
+	l1 *slog.Logger `ctx:""`
+	l2 *slog.Logger `ctx:"named_slog1"`
+	l3 *slog.Logger `ctx:"logger"`
+	l4 *slog.Logger `ctx:"logger(named_slog2)"`
+}
+
+func (s *slogExample) Init() {
+	s.l1.Info("test", slog.String("test", "hello world"))
+	s.l2.Info("test", 2)
+	s.l3.Info("test", 3)
+	s.l4.Info("test", 4)
+}
+
 func main() {
-	logger.Init(logger.DEBUG)
+	_ = os.Setenv("SLOG_LEVEL", "debug")
+	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
+	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
+	_ = os.Setenv("SLOG_HANDLER", "legacy")
 
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
@@ -560,6 +558,7 @@ func main() {
 			&slowDisposingService{},
 			&envCustomService{},
 			&newTags{},
+			&slogExample{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

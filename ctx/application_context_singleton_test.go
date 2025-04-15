@@ -8,7 +8,7 @@ func TestStartApplicationBlocking(t *testing.T) {
 	type s1 struct {
 	}
 	type s2 struct {
-		s1 *s1 `inject:""`
+		s1 *s1 `ctx:""`
 	}
 
 	is1 := &s1{}
@@ -56,10 +56,10 @@ func TestStartApplicationAsync(t *testing.T) {
 
 func TestApplicationRestart(t *testing.T) {
 	type s1 struct {
-		ctx AppContext `inject:"CTX"`
+		ctx AppContext `ctx:"CTX"`
 	}
 	type s2 struct {
-		s1 *s1 `inject:""`
+		s1 *s1 `ctx:""`
 	}
 
 	is1 := &s1{}

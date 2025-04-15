@@ -1,7 +1,7 @@
 package ctx
 
 import (
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
 	"reflect"
 	"runtime/debug"
 	"sync"

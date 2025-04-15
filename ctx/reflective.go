@@ -1,7 +1,8 @@
 package ctx
 
 import (
-	"github.com/sedmess/go-ctx/logger"
+	"github.com/sedmess/go-ctx/ctx/logger"
+	"log/slog"
 	"reflect"
 )
 
@@ -44,15 +45,29 @@ func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWra
 
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	injectLoggerFn := func(field reflect.StructField, value reflect.Value, name string) {
-		var l logger.Logger
-		if name != "" {
-			logger.Debug(w.name, "inject logger \""+name+"\" into field", field.Name)
-			l = logger.NewWithTag(name)
+		if field.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) {
+			var l logger.Logger
+			if name != "" {
+				logger.Debug(w.name, "inject logger \""+name+"\" into field", field.Name)
+				l = logger.New(name)
+			} else {
+				logger.Debug(w.name, "inject default logger into field", field.Name)
+				l = logger.New(w.name)
+			}
+			setFieldValue(field, value, l)
+		} else if field.Type.AssignableTo(reflect.TypeOf((*slog.Logger)(nil))) {
+			var l *slog.Logger
+			if name != "" {
+				logger.Debug(w.name, "inject slogger \""+name+"\" into field", field.Name)
+				l = logger.CreateSlogFor(name)
+			} else {
+				logger.Debug(w.name, "inject default slogger into field", field.Name)
+				l = logger.CreateSlogFor(w.name)
+			}
+			setFieldValue(field, value, l)
 		} else {
-			logger.Debug(w.name, "inject default logger into field", field.Name)
-			l = logger.New(w)
+			logger.Fatal(w.name, "can't inject logger into field", field.Name)
 		}
-		setFieldValue(field, value, l)
 	}
 	injectServiceFn := func(field reflect.StructField, value reflect.Value, name string) {
 		var service any
@@ -84,7 +99,7 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 
 		if tag.auto {
 			// auto mode
-			if sField.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) {
+			if sField.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) || sField.Type.AssignableTo(reflect.TypeOf((*slog.Logger)(nil))) {
 				injectLoggerFn(sField, sValue, tag.name)
 			} else {
 				injectServiceFn(sField, sValue, tag.name)
