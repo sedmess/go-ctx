@@ -21,6 +21,7 @@ type reflectionTag struct {
 	impl        bool
 	log         bool
 	logName     string
+	logAttrs    [][]string
 	env         string
 	envDef      bool
 	envDefValue string
@@ -51,6 +52,13 @@ func defineReflectionTag(tag reflect.StructTag) (rTag reflectionTag) {
 					rTag.log = true
 					if len(submatch) == 4 {
 						rTag.logName = submatch[3]
+					}
+				case "loggerAttr":
+					if len(submatch) == 4 {
+						attr := submatch[3]
+						if key, value, found := strings.Cut(attr, "="); found {
+							rTag.logAttrs = append(rTag.logAttrs, []string{key, value})
+						}
 					}
 				default:
 					rTag.auto = true

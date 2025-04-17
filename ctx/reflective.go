@@ -44,25 +44,29 @@ func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWra
 }
 
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
-	injectLoggerFn := func(field reflect.StructField, value reflect.Value, name string) {
+	injectLoggerFn := func(field reflect.StructField, value reflect.Value, name string, attrs [][]string) {
+		var slogAttrs []any
+		for _, attr := range attrs {
+			slogAttrs = append(slogAttrs, slog.String(attr[0], attr[1]))
+		}
 		if field.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) {
 			var l logger.Logger
 			if name != "" {
 				logger.Debug(w.name, "inject logger \""+name+"\" into field", field.Name)
-				l = logger.New(name)
+				l = logger.New(name, slogAttrs...)
 			} else {
 				logger.Debug(w.name, "inject default logger into field", field.Name)
-				l = logger.New(w.name)
+				l = logger.New(w.name, slogAttrs...)
 			}
 			setFieldValue(field, value, l)
 		} else if field.Type.AssignableTo(reflect.TypeOf((*slog.Logger)(nil))) {
 			var l *slog.Logger
 			if name != "" {
 				logger.Debug(w.name, "inject slogger \""+name+"\" into field", field.Name)
-				l = logger.CreateSlogFor(name)
+				l = logger.CreateSlogFor(name, slogAttrs...)
 			} else {
 				logger.Debug(w.name, "inject default slogger into field", field.Name)
-				l = logger.CreateSlogFor(w.name)
+				l = logger.CreateSlogFor(w.name, slogAttrs...)
 			}
 			setFieldValue(field, value, l)
 		} else {
@@ -88,7 +92,7 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 		tag := defineReflectionTag(sField.Tag)
 
 		if tag.log {
-			injectLoggerFn(sField, sValue, tag.logName)
+			injectLoggerFn(sField, sValue, tag.logName, tag.logAttrs)
 			continue
 		}
 
@@ -100,7 +104,7 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 		if tag.auto {
 			// auto mode
 			if sField.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) || sField.Type.AssignableTo(reflect.TypeOf((*slog.Logger)(nil))) {
-				injectLoggerFn(sField, sValue, tag.name)
+				injectLoggerFn(sField, sValue, tag.name, tag.logAttrs)
 			} else {
 				injectServiceFn(sField, sValue, tag.name)
 			}

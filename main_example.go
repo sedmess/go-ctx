@@ -486,24 +486,28 @@ func (s *newTags) Init() {
 }
 
 type slogExample struct {
-	l1 *slog.Logger `ctx:""`
-	l2 *slog.Logger `ctx:"named_slog1"`
-	l3 *slog.Logger `ctx:"logger"`
-	l4 *slog.Logger `ctx:"logger(named_slog2)"`
+	l1 *slog.Logger  `ctx:""`
+	l2 *slog.Logger  `ctx:"named_slog1"`
+	l3 *slog.Logger  `ctx:"logger"`
+	l4 *slog.Logger  `ctx:"logger(named_slog2)"`
+	l5 *slog.Logger  `ctx:"logger(named_slog3) loggerAttr(tag1=val1) loggerAttr(tag2=val2) loggerAttr(tag3=val3)"`
+	l6 logger.Logger `ctx:"logger loggerAttr(tag1=val1) loggerAttr(tag2=val2) loggerAttr(tag3=val3)"`
 }
 
 func (s *slogExample) Init() {
 	s.l1.Info("test", slog.String("test", "hello world"))
-	s.l2.Info("test", 2)
-	s.l3.Info("test", 3)
-	s.l4.Info("test", 4)
+	s.l2.Info("test")
+	s.l3.Info("test")
+	s.l4.Info("test")
+	s.l5.Info("test")
+	s.l6.Info("test", 6)
 }
 
 func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
 	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
-	_ = os.Setenv("SLOG_HANDLER", "legacy")
+	_ = os.Setenv("SLOG_HANDLER", "json")
 
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()

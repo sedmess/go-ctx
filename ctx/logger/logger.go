@@ -33,11 +33,11 @@ func SetSlogHandler(handler slog.Handler) {
 	slogWrapper.handler = handler
 }
 
-func CreateSlogFor(serviceName string) *slog.Logger {
+func CreateSlogFor(serviceName string, attrs ...any) *slog.Logger {
 	slogWrapper.mu.RLock()
 	defer slogWrapper.mu.RUnlock()
 
-	return slog.New(slogWrapper.handler).With(TagKey, serviceName)
+	return slog.New(slogWrapper.handler).With(slog.String(TagKey, serviceName)).With(attrs...)
 }
 
 type Logger interface {
@@ -51,8 +51,8 @@ type logger struct {
 	l *slog.Logger
 }
 
-func New(serviceName string) Logger {
-	return &logger{l: CreateSlogFor(serviceName)}
+func New(serviceName string, attrs ...any) Logger {
+	return &logger{l: CreateSlogFor(serviceName, attrs...)}
 }
 
 func (instance *logger) Debug(msg ...any) {
