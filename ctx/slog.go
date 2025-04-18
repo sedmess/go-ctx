@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"sync/atomic"
 )
 
 const (
@@ -34,7 +33,7 @@ const (
 
 type slogLegacyHandler struct {
 	level  slog.Level
-	tag    atomic.Value
+	tag    string
 	lDebug *log.Logger
 	lInfo  *log.Logger
 	lWarn  *log.Logger
@@ -79,7 +78,7 @@ func (s *slogLegacyHandler) WithAttrs(attr []slog.Attr) slog.Handler {
 	for i := range attr {
 		if attr[i].Key == logger.TagKey {
 			newHandler := s.copy()
-			newHandler.tag.Store(attr[i].Value)
+			newHandler.tag = "[" + attr[i].Value.String() + "] "
 			return newHandler
 		}
 	}
@@ -95,7 +94,6 @@ func (s *slogLegacyHandler) WithGroup(_ string) slog.Handler {
 func (s *slogLegacyHandler) copy() *slogLegacyHandler {
 	return &slogLegacyHandler{
 		level:  s.level,
-		tag:    atomic.Value{},
 		lDebug: s.lDebug,
 		lInfo:  s.lInfo,
 		lWarn:  s.lWarn,
@@ -107,15 +105,15 @@ func (s *slogLegacyHandler) copy() *slogLegacyHandler {
 func (s *slogLegacyHandler) Handle(_ context.Context, record slog.Record) error {
 	switch record.Level {
 	case slog.LevelDebug:
-		return s.lDebug.Output(4, record.Message)
+		return s.lDebug.Output(4, s.tag+record.Message)
 	case slog.LevelInfo:
-		return s.lInfo.Output(4, record.Message)
+		return s.lInfo.Output(4, s.tag+record.Message)
 	case slog.LevelWarn:
-		return s.lWarn.Output(4, record.Message)
+		return s.lWarn.Output(4, s.tag+record.Message)
 	case slog.LevelError:
-		return s.lError.Output(4, record.Message)
+		return s.lError.Output(4, s.tag+record.Message)
 	default:
-		return s.lInfo.Output(4, record.Message)
+		return s.lInfo.Output(4, s.tag+record.Message)
 	}
 }
 

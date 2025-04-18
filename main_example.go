@@ -507,7 +507,7 @@ func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
 	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
-	_ = os.Setenv("SLOG_HANDLER", "json")
+	_ = os.Setenv("SLOG_HANDLER", "legacy")
 
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
