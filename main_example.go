@@ -88,7 +88,7 @@ func (instance *timedService) Dispose() {
 func (instance *timedService) AfterStart() {
 	instance.l.Info("afterStart")
 	instance.StartTimer(2*time.Second, func() {
-		logger.Info("timer", "onTimer!")
+		logger.Warn("timer", "onTimer!")
 	})
 	instance.l.Info("afterStart2")
 }
@@ -500,7 +500,7 @@ func (s *slogExample) Init() {
 	s.l3.Info("test")
 	s.l4.Info("test")
 	s.l5.Info("test")
-	s.l6.Info("test", 6)
+	s.l6.Warn("test", 6)
 }
 
 func main() {

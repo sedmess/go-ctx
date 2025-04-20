@@ -43,6 +43,7 @@ func CreateSlogFor(serviceName string, attrs ...any) *slog.Logger {
 type Logger interface {
 	Debug(msg ...any)
 	Info(msg ...any)
+	Warn(msg ...any)
 	Error(msg ...any)
 	Fatal(msg ...any)
 }
