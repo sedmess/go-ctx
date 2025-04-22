@@ -41,7 +41,7 @@ type slogLegacyHandler struct {
 	lFatal *log.Logger
 }
 
-func newSlogLegacyHandler(w io.Writer, level slog.Level, addSource bool) *slogLegacyHandler {
+func NewSlogLegacyHandler(w io.Writer, level slog.Level, addSource bool) slog.Handler {
 	flags := log.Ldate | log.Ltime | log.Lmsgprefix | log.Lmicroseconds
 	if addSource {
 		flags |= log.Lshortfile
@@ -141,7 +141,7 @@ func createSlogHandler(writer io.Writer) slog.Handler {
 
 	switch strings.ToLower(GetEnv(slogHandlerParam).AsStringDefault(slogHandlerText)) {
 	case slogHandlerLegacy:
-		handler = newSlogLegacyHandler(writer, handlerOptions.Level.Level(), handlerOptions.AddSource)
+		handler = NewSlogLegacyHandler(writer, handlerOptions.Level.Level(), handlerOptions.AddSource)
 	case slogHandlerText:
 		handler = slog.NewTextHandler(writer, handlerOptions)
 	case slogHandlerJson:
@@ -181,6 +181,14 @@ func InitSlog() {
 	slog.SetDefault(slog.New(handler))
 }
 
+//goland:noinspection GoUnusedExportedFunction
+func SetSlogWriter(writer io.Writer) {
+	handler := prepareSlogHandler(createSlogHandler(writer))
+	logger.SetSlogHandler(handler)
+	slog.SetDefault(slog.New(handler))
+}
+
+//goland:noinspection GoUnusedExportedFunction
 func SetSlogHandler(handler slog.Handler) {
 	if handler == nil {
 		log.Fatal("handler cannot be nil")
