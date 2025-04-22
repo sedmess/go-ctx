@@ -4,11 +4,13 @@ import (
 	"context"
 	"github.com/sedmess/go-ctx/ctx/appinfo"
 	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u"
 	"io"
 	"log"
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 const (
@@ -30,6 +32,8 @@ const (
 	slogLevelWarn  = "warn"
 	slogLevelError = "error"
 )
+
+var slogHandlerSet = atomic.Bool{}
 
 type slogLegacyHandler struct {
 	level  slog.Level
@@ -176,14 +180,26 @@ func prepareSlogHandler(h slog.Handler) (handler slog.Handler) {
 }
 
 func InitSlog() {
+	if slogHandlerSet.Load() {
+		return
+	}
 	handler := prepareSlogHandler(createSlogHandler(os.Stdout))
 	logger.SetSlogHandler(handler)
 	slog.SetDefault(slog.New(handler))
 }
 
-//goland:noinspection GoUnusedExportedFunction
-func SetSlogWriter(writer io.Writer) {
-	handler := prepareSlogHandler(createSlogHandler(writer))
+func SetSlogWriter(writers ...io.Writer) {
+	if len(writers) == 0 {
+		log.Fatal("writers must not be empty")
+	}
+	w := writers[0]
+	for i := 1; i < len(writers); i++ {
+		w = u.NewSpyWriter(w, writers[i])
+	}
+	handler := prepareSlogHandler(createSlogHandler(w))
+
+	slogHandlerSet.Store(true)
+
 	logger.SetSlogHandler(handler)
 	slog.SetDefault(slog.New(handler))
 }
@@ -194,6 +210,9 @@ func SetSlogHandler(handler slog.Handler) {
 		log.Fatal("handler cannot be nil")
 	}
 	handler = prepareSlogHandler(handler)
+
+	slogHandlerSet.Store(true)
+
 	logger.SetSlogHandler(handler)
 	slog.SetDefault(slog.New(handler))
 }

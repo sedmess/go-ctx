@@ -15,6 +15,7 @@ func init() {
 	}
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func String() string {
 	if //goland:noinspection GoBoolExpressions
 	Version == "" {
@@ -22,4 +23,14 @@ func String() string {
 	} else {
 		return Name + " " + Version
 	}
+}
+
+//goland:noinspection GoUnusedExportedFunction
+func FullString() string {
+	str := String()
+	if //goland:noinspection GoBoolExpressions
+	BuildInfo != "" {
+		str += " (" + BuildInfo + ")"
+	}
+	return str
 }

@@ -7,37 +7,34 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const TagKey = "tag"
 
-type slogWrapperStruct struct {
-	mu      sync.RWMutex
-	handler slog.Handler
-}
+var slogHandler atomic.Pointer[any]
 
-var slogWrapper = slogWrapperStruct{
-	handler: slog.NewTextHandler(os.Stdout, nil),
+func init() {
+	var h any
+	h = slog.NewTextHandler(os.Stdout, nil)
+	slogHandler.Store(&h)
 }
 
 func SetSlogHandler(handler slog.Handler) {
-	slogWrapper.mu.Lock()
-	defer slogWrapper.mu.Unlock()
-
 	if handler == nil {
 		log.Fatal("handler cannot be nil")
 	}
 
-	slogWrapper.handler = handler
+	var h any
+	h = handler
+
+	slogHandler.Store(&h)
 }
 
 func CreateSlogFor(serviceName string, attrs ...any) *slog.Logger {
-	slogWrapper.mu.RLock()
-	defer slogWrapper.mu.RUnlock()
-
-	return slog.New(slogWrapper.handler).With(slog.String(TagKey, serviceName)).With(attrs...)
+	h := *slogHandler.Load()
+	return slog.New(h.(slog.Handler)).With(slog.String(TagKey, serviceName)).With(attrs...)
 }
 
 type Logger interface {

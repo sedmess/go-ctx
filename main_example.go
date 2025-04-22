@@ -509,6 +509,11 @@ func main() {
 	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
 	_ = os.Setenv("SLOG_HANDLER", "legacy")
 
+	ctx.SetSlogWriter(
+		os.Stdout,
+		os.Stderr,
+	)
+
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
 	envMap := ctx.GetEnv("map").AsMap()
 	println(envMap["key1"].AsString())
