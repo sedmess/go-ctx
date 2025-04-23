@@ -7,25 +7,25 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const defaultPropertiesFileName = ".env"
 const defaultCustomPropertiesFileName = ".env_custom"
 
+var propertiesOnce sync.Once
 var properties map[string]string
 
-func InitProperties() {
-	if properties != nil {
-		return
-	}
+func initProperties() {
+	propertiesOnce.Do(func() {
+		envFileMap := make(map[string]string)
 
-	envFileMap := make(map[string]string)
+		readFile(defaultPropertiesFileName, envFileMap)
+		readFile(defaultCustomPropertiesFileName, envFileMap)
 
-	readFile(defaultPropertiesFileName, envFileMap)
-	readFile(defaultCustomPropertiesFileName, envFileMap)
-
-	properties = envFileMap
+		properties = envFileMap
+	})
 }
 
 func readFile(path string, properties map[string]string) {
@@ -379,6 +379,7 @@ func (instance *EnvValue) String() string {
 }
 
 func GetEnv(name string) *EnvValue {
+	initProperties()
 	var value string
 	var set bool
 	value, set = os.LookupEnv(name)
@@ -408,6 +409,12 @@ func getEnvCustom(custom string, name string, allowDefault bool) *EnvValue {
 	} else {
 		return env
 	}
+}
+
+func Env[T any]() T {
+	t := new(T)
+	InjectEnv(t)
+	return *t
 }
 
 func InjectEnv(target any) {

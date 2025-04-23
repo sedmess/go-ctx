@@ -42,7 +42,6 @@ func StartContextualizedApplication(servicePackages ...[]any) {
 }
 
 func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
-	InitProperties()
 	InitSlog()
 	return startApplication(servicePackages)
 }

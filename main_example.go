@@ -503,6 +503,12 @@ func (s *slogExample) Init() {
 	s.l6.Warn("test", 6)
 }
 
+type envStruct struct {
+	l      logger.Logger `ctx:""`
+	param1 string        `env:"PARAM1=param1"`
+	key100 int           `env:"KEY100"`
+}
+
 func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
@@ -549,6 +555,11 @@ func main() {
 		aService := ctx.GetService(aServiceName).(*aService)
 		aService.Do()
 	}()
+
+	es := ctx.Env[envStruct]()
+	println(es.param1)
+	println(es.key100)
+	println(es.l)
 
 	application := ctx.CreateContextualizedApplication(
 		ctx.PackageOf(
