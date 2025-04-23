@@ -32,15 +32,6 @@ func (a *application) Join() {
 	a.mu.RUnlock()
 }
 
-// Deprecated: use ctx.CreateContextualizedApplication with .Join() call
-func StartContextualizedApplication(servicePackages ...[]any) {
-	pkgs := make([]ServicePackage, len(servicePackages))
-	for i := range servicePackages {
-		pkgs[i] = PackageOf(servicePackages[i]...)
-	}
-	CreateContextualizedApplication(pkgs...).Join()
-}
-
 func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
 	InitSlog()
 	return startApplication(servicePackages)

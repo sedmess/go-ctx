@@ -393,6 +393,7 @@ func GetEnvCustom(custom string, name string) *EnvValue {
 	return getEnvCustom(custom, name, false)
 }
 
+//goland:noinspection ALL
 func GetEnvCustomOrDefault(custom string, name string) *EnvValue {
 	return getEnvCustom(custom, name, true)
 }
