@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"context"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"reflect"
 	"runtime/debug"
@@ -31,6 +32,9 @@ type appContext struct {
 
 	state state
 
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+
 	services  map[string]Service
 	states    map[string]state
 	initOrder []string
@@ -50,6 +54,7 @@ func newApplicationContext() *appContext {
 	ctx.eventBus = make(chan event)
 	ctx.stats = createContextStats()
 	ctx.health = createContextHealth()
+	ctx.ctx, ctx.ctxCancel = context.WithCancel(context.Background())
 	return &ctx
 }
 
@@ -59,7 +64,7 @@ func (ctx *appContext) register(serviceInstance any, name string) {
 
 	ctx.checkState(stateNotInitialized)
 
-	sInstance := newReflectiveServiceWrapper(serviceInstance, name)
+	sInstance := newReflectiveServiceWrapper(ctx.ctx, serviceInstance, name)
 
 	serviceName := sInstance.Name()
 	if _, found := ctx.services[serviceName]; found {
@@ -192,6 +197,9 @@ func (ctx *appContext) stop() {
 	if hasLCServices {
 		logger.Info(ctxTag, "=== all lifecycle-aware services handled BeforeStop event ===")
 	}
+
+	logger.Debug(ctxTag, "canceling root context")
+	ctx.ctxCancel()
 
 	ctx.state = stateUsed
 

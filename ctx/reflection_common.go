@@ -25,6 +25,7 @@ type reflectionTag struct {
 	env         string
 	envDef      bool
 	envDefValue string
+	context     bool
 	name        string
 }
 
@@ -60,6 +61,8 @@ func defineReflectionTag(tag reflect.StructTag) (rTag reflectionTag) {
 							rTag.logAttrs = append(rTag.logAttrs, []string{key, value})
 						}
 					}
+				case "context":
+					rTag.context = true
 				default:
 					rTag.auto = true
 					rTag.name = field

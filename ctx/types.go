@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"context"
 	"github.com/sedmess/go-ctx/ctx/health"
 	"reflect"
 )
@@ -30,8 +31,16 @@ type Initializable interface {
 	Init(serviceProvider ServiceProvider)
 }
 
+type InitializableContext interface {
+	Init(context context.Context, serviceProvider ServiceProvider)
+}
+
 type Constructable interface {
 	Init()
+}
+
+type ConstructableContext interface {
+	Init(context context.Context)
 }
 
 type Named interface {

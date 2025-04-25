@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"context"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"log/slog"
 	"reflect"
@@ -15,6 +16,7 @@ type reflectiveServiceWrapper struct {
 	sValue reflect.Value
 	sType  reflect.Type
 	name   string
+	ctx    context.Context
 }
 
 func unwrap(service Service) any {
@@ -25,7 +27,7 @@ func unwrap(service Service) any {
 	}
 }
 
-func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWrapper {
+func newReflectiveServiceWrapper(ctx context.Context, service any, name string) *reflectiveServiceWrapper {
 	sType := reflect.TypeOf(service)
 	if sType.Kind() != reflect.Pointer {
 		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
@@ -40,7 +42,7 @@ func newReflectiveServiceWrapper(service any, name string) *reflectiveServiceWra
 	} else {
 		sName = name
 	}
-	return &reflectiveServiceWrapper{sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
+	return &reflectiveServiceWrapper{ctx: ctx, sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
 }
 
 func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
@@ -84,6 +86,13 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 		}
 		setFieldValue(field, value, service)
 	}
+	injectContextFn := func(field reflect.StructField, value reflect.Value) {
+		if field.Type.AssignableTo(reflect.TypeOf((*context.Context)(nil)).Elem()) {
+			setFieldValue(field, value, w.ctx)
+		} else {
+			logger.Fatal(w.name, "can't inject context.Context into field", field.Name)
+		}
+	}
 
 	for i := 0; i < w.sType.NumField(); i++ {
 		sField := w.sType.Field(i)
@@ -101,10 +110,17 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 			continue
 		}
 
+		if tag.context {
+			injectContextFn(sField, sValue)
+			continue
+		}
+
 		if tag.auto {
 			// auto mode
 			if sField.Type.AssignableTo(reflect.TypeOf((*logger.Logger)(nil)).Elem()) || sField.Type.AssignableTo(reflect.TypeOf((*slog.Logger)(nil))) {
 				injectLoggerFn(sField, sValue, tag.name, tag.logAttrs)
+			} else if sField.Type.AssignableTo(reflect.TypeOf((*context.Context)(nil)).Elem()) {
+				injectContextFn(sField, sValue)
 			} else {
 				injectServiceFn(sField, sValue, tag.name)
 			}
@@ -117,8 +133,14 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	if v, ok := w.sRef.(Initializable); ok {
 		v.Init(serviceProvider)
 	}
+	if v, ok := w.sRef.(InitializableContext); ok {
+		v.Init(w.ctx, serviceProvider)
+	}
 	if v, ok := w.sRef.(Constructable); ok {
 		v.Init()
+	}
+	if v, ok := w.sRef.(ConstructableContext); ok {
+		v.Init(w.ctx)
 	}
 }
 

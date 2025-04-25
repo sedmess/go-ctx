@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/health"
@@ -509,6 +510,23 @@ type envStruct struct {
 	key100 int           `env:"KEY100"`
 }
 
+type contextService struct {
+	context1 context.Context `ctx:""`
+	context2 context.Context `ctx:"context"`
+	l        logger.Logger   `ctx:""`
+}
+
+func (s *contextService) AfterStart() {
+	go func() {
+		<-s.context1.Done()
+		s.l.Info("DONE1")
+	}()
+	go func() {
+		<-s.context2.Done()
+		s.l.Info("DONE2")
+	}()
+}
+
 func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
@@ -579,6 +597,7 @@ func main() {
 			&envCustomService{},
 			&newTags{},
 			&slogExample{},
+			&contextService{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)
