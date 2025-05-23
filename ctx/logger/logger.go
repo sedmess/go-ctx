@@ -53,6 +53,10 @@ func New(serviceName string, attrs ...any) Logger {
 	return &logger{l: CreateSlogFor(serviceName, attrs...)}
 }
 
+func (instance *logger) Slog() *slog.Logger {
+	return instance.l
+}
+
 func (instance *logger) Debug(msg ...any) {
 	writeLog(instance.l.Handler(), slog.LevelDebug, msg...)
 }
