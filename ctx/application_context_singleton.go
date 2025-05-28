@@ -95,7 +95,7 @@ func startApplication(servicePackages []ServicePackage) Application {
 	return &app
 }
 
-func GetService(serviceName string) any {
+func GetService(serviceName string) (svc any, ok bool) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -106,8 +106,12 @@ func GetService(serviceName string) any {
 	}
 }
 
-func GetTypedService[T any]() T {
-	return GetService(u.GetInterfaceName[T]()).(T)
+func GetTypedService[T any]() (svc T, ok bool) {
+	if srv, ok := GetService(u.GetInterfaceName[T]()); ok {
+		return srv.(T), true
+	} else {
+		panic("no service of given type available")
+	}
 }
 
 func sendEvent(e event) {

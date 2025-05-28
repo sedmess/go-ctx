@@ -17,7 +17,9 @@ type connectable interface {
 }
 
 type ConnectableService[In any, Out any] interface {
-	Service
+	Initializable
+	Disposable
+	Named
 	OnMessage(In)
 	Send(Out)
 }

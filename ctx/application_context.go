@@ -21,7 +21,7 @@ var stateUsed = state{code: -1, name: "used"}
 const ctxTag = "CTX"
 
 type AppContext interface {
-	GetService(serviceName string) any
+	GetService(serviceName string) (any, bool)
 	Stats() AppContextStats
 	Health() AppContextHealth
 	State() (int, string)
@@ -35,7 +35,7 @@ type appContext struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	services  map[string]Service
+	services  map[string]*reflectiveServiceWrapper
 	states    map[string]state
 	initOrder []string
 
@@ -48,7 +48,7 @@ type appContext struct {
 func newApplicationContext() *appContext {
 	ctx := appContext{}
 	ctx.state = stateNotInitialized
-	ctx.services = make(map[string]Service)
+	ctx.services = make(map[string]*reflectiveServiceWrapper)
 	ctx.states = make(map[string]state)
 	ctx.initOrder = make([]string, 0)
 	ctx.eventBus = make(chan event)
@@ -111,28 +111,18 @@ func (ctx *appContext) start() {
 	logger.Info(ctxTag, "=== all services have been initialized ===")
 
 	var wg sync.WaitGroup
-	hasLCServices := false
 	for serviceName, serviceInstance := range ctx.services {
-		serviceInstance := unwrap(serviceInstance)
-		startAwareInstance, ok := serviceInstance.(StartAware)
-		if ok {
-			hasLCServices = true
-			wg.Add(1)
-			go func(serviceName string) {
-				defer wg.Done()
-				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
-
-				if err := nopanic.Run(startAwareInstance.AfterStart); err != nil {
-					logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", err.Error())
-				}
-			}(serviceName)
-		}
+		wg.Add(1)
+		go func(serviceName string, serviceInstance *reflectiveServiceWrapper) {
+			defer wg.Done()
+			if err := serviceInstance.afterStart(); err != nil {
+				logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", err.Error())
+			}
+		}(serviceName, serviceInstance)
 	}
 	wg.Wait()
 
-	if hasLCServices {
-		logger.Info(ctxTag, "=== all lifecycle-aware services handled AfterStart event ===")
-	}
+	logger.Info(ctxTag, "=== all lifecycle-aware services handled AfterStart event ===")
 
 	logger.Info(ctxTag, "=== ...started ===")
 
@@ -170,23 +160,17 @@ func (ctx *appContext) stop() {
 
 	logger.Info(ctxTag, "=== stopping... ===")
 
-	hasLCServices := false
 	for i := len(ctx.initOrder) - 1; i >= 0; i-- {
 		serviceName := ctx.initOrder[i]
-		serviceInstance := unwrap(ctx.services[serviceName])
-		stopAwareInstance, ok := serviceInstance.(StopAware)
-		if ok {
-			hasLCServices = true
-			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
-			if err := nopanic.Run(stopAwareInstance.BeforeStop); err != nil {
-				logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop():", err.Error())
-			}
+
+		serviceInstance := ctx.services[serviceName]
+
+		if err := serviceInstance.beforeStop(); err != nil {
+			logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop():", err.Error())
 		}
 	}
 
-	if hasLCServices {
-		logger.Info(ctxTag, "=== all lifecycle-aware services handled BeforeStop event ===")
-	}
+	logger.Info(ctxTag, "=== all lifecycle-aware services handled BeforeStop event ===")
 
 	logger.Debug(ctxTag, "canceling root context")
 	ctx.ctxCancel()
@@ -201,7 +185,7 @@ func (ctx *appContext) stop() {
 	logger.Info(ctxTag, "=== ...stopped ===")
 }
 
-func (ctx *appContext) GetService(serviceName string) any {
+func (ctx *appContext) GetService(serviceName string) (srv any, ok bool) {
 	ctx.RLock()
 	defer ctx.RUnlock()
 
@@ -209,9 +193,9 @@ func (ctx *appContext) GetService(serviceName string) any {
 
 	service, found := ctx.services[serviceName]
 	if !found {
-		panic("service " + serviceName + " not found")
+		return nil, false
 	}
-	return unwrap(service)
+	return service.unwrap(), true
 }
 
 func (ctx *appContext) Stats() AppContextStats {
@@ -237,7 +221,7 @@ func (ctx *appContext) State() (int, string) {
 	return state.code, state.name
 }
 
-func (ctx *appContext) initService(serviceInstance Service) {
+func (ctx *appContext) initService(serviceInstance *reflectiveServiceWrapper) {
 	ctx.states[serviceInstance.Name()] = stateInitialization
 	logger.Debug(ctxTag, "service ["+serviceInstance.Name()+"] initialization started...")
 	ctx.initOrder = append(ctx.initOrder, serviceInstance.Name())
@@ -245,7 +229,7 @@ func (ctx *appContext) initService(serviceInstance Service) {
 	serviceDescriptor := createDescriptorFor(serviceInstance)
 	ctx.health.registerHealthReporter(serviceInstance)
 
-	serviceInstance.Init(serviceProviderImpl(func(requestedServiceName string) any {
+	if err := serviceInstance.init(serviceProviderImpl(func(requestedServiceName string) any {
 		logger.Debug(ctxTag, "["+serviceInstance.Name()+"] requested service ["+requestedServiceName+"]")
 
 		if requestedServiceName == ctxTag {
@@ -256,13 +240,13 @@ func (ctx *appContext) initService(serviceInstance Service) {
 		if requestedServiceInstance, found := ctx.services[requestedServiceName]; found {
 			serviceState := ctx.states[requestedServiceName]
 			if serviceState == stateInitialized {
-				return unwrap(requestedServiceInstance)
+				return requestedServiceInstance.unwrap()
 			} else if serviceState == stateInitialization {
 				logger.Fatal(ctxTag, "cyclic dependency between ["+serviceInstance.Name()+"] and ["+requestedServiceName+"]")
 				return nil
 			} else if serviceState == stateNotInitialized {
 				ctx.initService(requestedServiceInstance)
-				return unwrap(requestedServiceInstance)
+				return requestedServiceInstance.unwrap()
 			} else {
 				panic("unexpected error")
 			}
@@ -270,7 +254,9 @@ func (ctx *appContext) initService(serviceInstance Service) {
 			logger.Fatal(ctxTag, "service ["+requestedServiceName+"] not found")
 			return nil
 		}
-	}))
+	})); err != nil {
+
+	}
 	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
 	ctx.stats.registerServiceDescriptor(serviceDescriptor)
@@ -287,17 +273,15 @@ func (ctx *appContext) disposeServices() {
 		if state == stateInitialized {
 			wg.Add(1)
 			logger.Debug(ctxTag, "dispose service ["+serviceName+"]")
-			go func(serviceName string, serviceInstance Service) {
+			go func(serviceName string, serviceInstance *reflectiveServiceWrapper) {
 				defer wg.Done()
-				if err := nopanic.Run(func() {
-					serviceInstance.Dispose()
 
-					l.Lock()
-					ctx.states[serviceName] = stateUsed
-					l.Unlock()
-				}); err != nil {
+				if err := serviceInstance.dispose(); err != nil {
 					logger.Error(ctxTag, "on service ["+serviceName+"] disposing:", err.Error())
 				}
+				l.Lock()
+				ctx.states[serviceName] = stateUsed
+				l.Unlock()
 			}(serviceName, serviceInstance)
 		}
 	}

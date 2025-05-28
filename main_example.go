@@ -604,7 +604,7 @@ func main() {
 
 	go func() {
 		<-time.After(5 * time.Second)
-		aService := ctx.GetService(aServiceName).(*aService)
+		aService := u.First(ctx.GetService(aServiceName)).(*aService)
 		aService.Do()
 	}()
 

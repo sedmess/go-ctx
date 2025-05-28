@@ -21,6 +21,10 @@ func Must3[T1 any, T2 any](val1 T1, val2 T2, err error) (T1, T2) {
 	return val1, val2
 }
 
+func First[T any](t T, _ ...any) T {
+	return t
+}
+
 func Use[T io.Closer](resource T, block func(it T)) {
 	defer CloseOptimistic(resource)
 	block(resource)
@@ -36,16 +40,4 @@ func JoinAsString[T any](arr []T, converter func(val T) string, sep string) stri
 
 func CloseOptimistic(resource io.Closer) {
 	Must(resource.Close())
-}
-
-func WrapPanic[T any](block func() T, wrapperFunc func(reason any) any) T {
-	defer func() {
-		panicReason := recover()
-		if panicReason != nil {
-			if newReason := wrapperFunc(panicReason); newReason != nil {
-				panic(newReason)
-			}
-		}
-	}()
-	return block()
 }

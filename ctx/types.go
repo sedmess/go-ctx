@@ -31,16 +31,32 @@ type Initializable interface {
 	Init(serviceProvider ServiceProvider)
 }
 
+type InitializableE interface {
+	Init(serviceProvider ServiceProvider) error
+}
+
 type InitializableContext interface {
 	Init(context context.Context, serviceProvider ServiceProvider)
+}
+
+type InitializableContextE interface {
+	Init(context context.Context, serviceProvider ServiceProvider) error
 }
 
 type Constructable interface {
 	Init()
 }
 
+type ConstructableE interface {
+	Init() error
+}
+
 type ConstructableContext interface {
 	Init(context context.Context)
+}
+
+type ConstructableContextE interface {
+	Init(context context.Context) error
 }
 
 type Named interface {
@@ -51,11 +67,15 @@ type Disposable interface {
 	Dispose()
 }
 
-type Service interface {
-	Initializable
-	Named
-	Disposable
+type DisposableE interface {
+	Dispose() error
 }
+
+//type service interface {
+//	InitializableE
+//	Named
+//	DisposableE
+//}
 
 type StartAware interface {
 	AfterStart()

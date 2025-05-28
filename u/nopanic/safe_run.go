@@ -37,6 +37,16 @@ func Run(fn func()) (err PanicWrapperError) {
 	return
 }
 
+func RunE(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = wrapPanicReason(r)
+		}
+	}()
+	err = fn()
+	return
+}
+
 func RunResult[T any](fn func() (T, error)) (res T, err error) {
 	defer func() {
 		if r := recover(); r != nil {

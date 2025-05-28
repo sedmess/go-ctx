@@ -17,8 +17,8 @@ type ServiceDescriptor struct {
 	Dependencies []string
 }
 
-func createDescriptorFor(service Service) ServiceDescriptor {
-	sInstance := unwrap(service)
+func createDescriptorFor(service *reflectiveServiceWrapper) ServiceDescriptor {
+	sInstance := service.unwrap()
 	_, isStartAware := sInstance.(StartAware)
 	_, isStopAware := sInstance.(StopAware)
 	return ServiceDescriptor{

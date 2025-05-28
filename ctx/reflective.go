@@ -3,13 +3,10 @@ package ctx
 import (
 	"context"
 	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
 	"log/slog"
 	"reflect"
 )
-
-type serviceWrapper interface {
-	service() any
-}
 
 type reflectiveServiceWrapper struct {
 	sRef   any
@@ -17,14 +14,6 @@ type reflectiveServiceWrapper struct {
 	sType  reflect.Type
 	name   string
 	ctx    context.Context
-}
-
-func unwrap(service Service) any {
-	if s, ok := service.(serviceWrapper); ok {
-		return s.service()
-	} else {
-		panic("unexpected error")
-	}
 }
 
 func newReflectiveServiceWrapper(ctx context.Context, service any, name string) *reflectiveServiceWrapper {
@@ -45,7 +34,11 @@ func newReflectiveServiceWrapper(ctx context.Context, service any, name string) 
 	return &reflectiveServiceWrapper{ctx: ctx, sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
 }
 
-func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
+func (w *reflectiveServiceWrapper) Name() string {
+	return w.name
+}
+
+func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 	injectLoggerFn := func(field reflect.StructField, value reflect.Value, name string, attrs [][]string) {
 		var slogAttrs []any
 		for _, attr := range attrs {
@@ -131,41 +124,95 @@ func (w *reflectiveServiceWrapper) Init(serviceProvider ServiceProvider) {
 	InjectEnv(w.sRef)
 
 	if v, ok := w.sRef.(Initializable); ok {
-		v.Init(serviceProvider)
+		if err := nopanic.Run(func() {
+			v.Init(serviceProvider)
+		}); err != nil {
+			return err
+		}
+	}
+	if v, ok := w.sRef.(InitializableE); ok {
+		if err := nopanic.RunE(func() error {
+			return v.Init(serviceProvider)
+		}); err != nil {
+			return err
+		}
 	}
 	if v, ok := w.sRef.(InitializableContext); ok {
-		v.Init(w.ctx, serviceProvider)
+		if err := nopanic.Run(func() {
+			v.Init(w.ctx, serviceProvider)
+		}); err != nil {
+			return err
+		}
+	}
+	if v, ok := w.sRef.(InitializableContextE); ok {
+		if err := nopanic.RunE(func() error {
+			return v.Init(w.ctx, serviceProvider)
+		}); err != nil {
+			return err
+		}
 	}
 	if v, ok := w.sRef.(Constructable); ok {
-		v.Init()
+		if err := nopanic.Run(func() {
+			v.Init()
+		}); err != nil {
+			return err
+		}
+	}
+	if v, ok := w.sRef.(ConstructableE); ok {
+		if err := nopanic.RunE(func() error {
+			return v.Init()
+		}); err != nil {
+			return err
+		}
 	}
 	if v, ok := w.sRef.(ConstructableContext); ok {
-		v.Init(w.ctx)
+		if err := nopanic.Run(func() {
+			v.Init(w.ctx)
+		}); err != nil {
+			return err
+		}
 	}
+	if v, ok := w.sRef.(ConstructableContextE); ok {
+		if err := nopanic.RunE(func() error {
+			return v.Init(w.ctx)
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (w *reflectiveServiceWrapper) Name() string {
-	return w.name
-}
-
-func (w *reflectiveServiceWrapper) AfterStart() {
+func (w *reflectiveServiceWrapper) afterStart() error {
 	if v, ok := w.sRef.(StartAware); ok {
-		v.AfterStart()
+		logger.Debug(w.name, "is livecycle-aware, notify it for start event")
+		return nopanic.Run(v.AfterStart)
+	} else {
+		return nil
 	}
 }
 
-func (w *reflectiveServiceWrapper) BeforeStop() {
+func (w *reflectiveServiceWrapper) beforeStop() error {
 	if v, ok := w.sRef.(StopAware); ok {
-		v.BeforeStop()
+		logger.Debug(w.name, "is livecycle-aware, notify it for stop event")
+		return nopanic.Run(v.BeforeStop)
+	} else {
+		return nil
 	}
 }
 
-func (w *reflectiveServiceWrapper) Dispose() {
+func (w *reflectiveServiceWrapper) dispose() error {
 	if v, ok := w.sRef.(Disposable); ok {
-		v.Dispose()
+		return nopanic.Run(v.Dispose)
 	}
+	if v, ok := w.sRef.(DisposableE); ok {
+		if err := nopanic.RunE(v.Dispose); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (w *reflectiveServiceWrapper) service() any {
+func (w *reflectiveServiceWrapper) unwrap() any {
 	return w.sRef
 }
