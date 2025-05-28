@@ -1,6 +1,12 @@
 package ctx
 
-import "time"
+import (
+	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
+	"time"
+)
+
+const timeTaskTag = "TimeTask"
 
 type TimerTask struct {
 	closer chan bool
@@ -9,17 +15,19 @@ type TimerTask struct {
 func (instance *TimerTask) StartTimer(interval time.Duration, actionOnTimer func()) {
 	instance.closer = make(chan bool)
 	ticker := time.NewTicker(interval)
-	Run(func() {
+	go func() {
 		for {
 			select {
 			case <-instance.closer:
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				actionOnTimer()
+				if err := nopanic.Run(actionOnTimer); err != nil {
+					logger.Error(timeTaskTag, err.Error())
+				}
 			}
 		}
-	})
+	}()
 }
 
 func (instance *TimerTask) StopTimer() {

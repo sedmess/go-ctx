@@ -2,6 +2,7 @@ package ctx
 
 import (
 	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
 	"reflect"
 	"strconv"
 	"strings"
@@ -65,24 +66,21 @@ func (connector *ServiceConnector[In, Out]) outType() reflect.Type {
 
 func (connector *ServiceConnector[In, Out]) listen(onMessage func(msg In)) {
 	connector.qCh = make(chan bool)
-	Run(func() {
+
+	go func() {
 		for {
 			select {
 			case msg := <-connector.inCh:
-				runWithRecover(
-					func() {
-						onMessage(msg.(In))
-					},
-					func(reason any) {
-						logger.Error(connector.name, "during onMessage:", reason)
-						panic(reason)
-					},
-				)
+				if err := nopanic.Run(func() {
+					onMessage(msg.(In))
+				}); err != nil {
+					logger.Error(connector.name, "during onMessage:", err.Error())
+				}
 			case <-connector.qCh:
 				break
 			}
 		}
-	})
+	}()
 }
 
 func (connector *ServiceConnector[In, Out]) stopListening() {

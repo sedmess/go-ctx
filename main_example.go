@@ -7,6 +7,7 @@ import (
 	"github.com/sedmess/go-ctx/ctx/health"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
+	"github.com/sedmess/go-ctx/u/nopanic"
 	"log/slog"
 	"os"
 	"time"
@@ -267,13 +268,18 @@ func (instance *reflectiveSingletonService2) Do() {
 }
 
 type panicService struct {
+	l logger.Logger `ctx:""`
 }
 
 func (p *panicService) AfterStart() {
-	ctx.Run(func() {
-		<-time.After(60 * time.Second)
-		panic("for no particular reason")
-	})
+	go func() {
+		<-time.After(10 * time.Second)
+		if err := nopanic.Run(func() {
+			panic("for no particular reason")
+		}); err != nil {
+			p.l.Error(err)
+		}
+	}()
 }
 
 func (p *panicService) BeforeStop() {
@@ -527,6 +533,34 @@ func (s *contextService) AfterStart() {
 	}()
 }
 
+type panicExample struct {
+	l logger.Logger `ctx:""`
+}
+
+func (p *panicExample) Init() {
+	//panic("test panic 1")
+	if res, err := nopanic.RunResult(func() (string, error) {
+		panic("some kind of panic")
+		//return "", errors.New("asd")
+	}); err != nil {
+		p.l.Error("can't call function 2:", err)
+	} else {
+		p.l.Info("result:", res)
+	}
+}
+
+func (p *panicExample) AfterStart() {
+	panic("test panic 2")
+}
+
+func (p *panicExample) BeforeStop() {
+	panic("test panic 3")
+}
+
+func (p *panicExample) Dispose() {
+	panic("test panic 4")
+}
+
 func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
@@ -598,6 +632,7 @@ func main() {
 			&newTags{},
 			&slogExample{},
 			&contextService{},
+			&panicExample{},
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
 	)

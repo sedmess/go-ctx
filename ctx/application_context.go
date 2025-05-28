@@ -3,8 +3,8 @@ package ctx
 import (
 	"context"
 	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
 	"reflect"
-	"runtime/debug"
 	"sync"
 )
 
@@ -93,17 +93,14 @@ func (ctx *appContext) start() {
 			break
 		}
 		if ctx.states[serviceName] == stateNotInitialized {
-			runWithRecover(
-				func() {
-					ctx.initService(serviceInstance)
-				},
-				func(reason any) {
-					logger.Error(ctxTag, "on initialization ["+serviceName+"]:", reason, "stacktrace:", string(debug.Stack()))
+			if err := nopanic.Run(func() {
+				ctx.initService(serviceInstance)
+			}); err != nil {
+				logger.Error(ctxTag, "on initialization ["+serviceName+"]:", err.Error())
 
-					ctx.disposeServices()
-					targetState = stateUsed
-				},
-			)
+				ctx.disposeServices()
+				targetState = stateUsed
+			}
 		}
 	}
 
@@ -124,12 +121,10 @@ func (ctx *appContext) start() {
 			go func(serviceName string) {
 				defer wg.Done()
 				logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for start event")
-				runWithRecover(
-					startAwareInstance.AfterStart,
-					func(reason any) {
-						logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", reason, "stacktrace:", string(debug.Stack()))
-					},
-				)
+
+				if err := nopanic.Run(startAwareInstance.AfterStart); err != nil {
+					logger.Error(ctxTag, "on service ["+serviceName+"] AfterStart():", err.Error())
+				}
 			}(serviceName)
 		}
 	}
@@ -183,14 +178,9 @@ func (ctx *appContext) stop() {
 		if ok {
 			hasLCServices = true
 			logger.Debug(ctxTag, "["+serviceName+"] is livecycle-aware, notify it for stop event")
-			runWithRecover(
-				func() {
-					stopAwareInstance.BeforeStop()
-				},
-				func(reason any) {
-					logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop()", reason, "stacktrace:", string(debug.Stack()))
-				},
-			)
+			if err := nopanic.Run(stopAwareInstance.BeforeStop); err != nil {
+				logger.Error(ctxTag, "on service ["+serviceName+"] BeforeStop():", err.Error())
+			}
 		}
 	}
 
@@ -299,18 +289,15 @@ func (ctx *appContext) disposeServices() {
 			logger.Debug(ctxTag, "dispose service ["+serviceName+"]")
 			go func(serviceName string, serviceInstance Service) {
 				defer wg.Done()
-				runWithRecover(
-					func() {
-						serviceInstance.Dispose()
+				if err := nopanic.Run(func() {
+					serviceInstance.Dispose()
 
-						l.Lock()
-						ctx.states[serviceName] = stateUsed
-						l.Unlock()
-					},
-					func(reason any) {
-						logger.Error(ctxTag, "on service ["+serviceName+"] disposing:", reason, "stacktrace:", string(debug.Stack()))
-					},
-				)
+					l.Lock()
+					ctx.states[serviceName] = stateUsed
+					l.Unlock()
+				}); err != nil {
+					logger.Error(ctxTag, "on service ["+serviceName+"] disposing:", err.Error())
+				}
 			}(serviceName, serviceInstance)
 		}
 	}
