@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/health"
@@ -537,7 +538,8 @@ type panicExample struct {
 	l logger.Logger `ctx:""`
 }
 
-func (p *panicExample) Init() {
+func (p *panicExample) Init() error {
+
 	//panic("test panic 1")
 	if res, err := nopanic.RunResult(func() (string, error) {
 		panic("some kind of panic")
@@ -547,6 +549,8 @@ func (p *panicExample) Init() {
 	} else {
 		p.l.Info("result:", res)
 	}
+
+	return errors.New("can't create")
 }
 
 func (p *panicExample) AfterStart() {

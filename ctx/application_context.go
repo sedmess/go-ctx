@@ -255,7 +255,7 @@ func (ctx *appContext) initService(serviceInstance *reflectiveServiceWrapper) {
 			return nil
 		}
 	})); err != nil {
-
+		logger.Fatal(ctxTag, "can't initialize service ["+serviceInstance.Name()+"]:", err.Error())
 	}
 	logger.Debug(ctxTag, "...service ["+serviceInstance.Name()+"] initialized")
 	ctx.states[serviceInstance.Name()] = stateInitialized
