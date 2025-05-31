@@ -17,50 +17,61 @@ import (
 const aServiceName = "a_service"
 const paramAName = "PARAM_A"
 
+// aService is a sample service that demonstrates initialization and logging
 type aService struct {
 	paramA int
 }
 
+// Init initializes the service with environment variable PARAM_A
 func (instance *aService) Init(_ ctx.ServiceProvider) {
 	instance.paramA = ctx.GetEnv(paramAName).AsIntDefault(5)
 	logger.Info(instance.Name(), "initialized")
 }
 
+// Name returns the service name
 func (instance *aService) Name() string {
 	return aServiceName
 }
 
+// Dispose logs when service is disposed
 func (instance *aService) Dispose() {
 	logger.Info(instance.Name(), "disposed")
 }
 
+// Do performs the service action and logs with current parameter
 func (instance *aService) Do() {
 	logger.Info(instance.Name(), "invoked: paramA =", instance.paramA)
 }
 
+// Health reports service health status
 func (instance *aService) Health() health.ServiceHealth {
 	return health.Status(health.Up)
 }
 
 const bServiceName = "b_service"
 
+// bService is a sample service that depends on aService
 type bService struct {
 	a *aService
 }
 
+// Init initializes bService by fetching aService from provider
 func (instance *bService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.a = serviceProvider.ByName(aServiceName).(*aService)
 	logger.Info(instance.Name(), "initialized")
 }
 
+// Name returns the service name
 func (instance *bService) Name() string {
 	return bServiceName
 }
 
+// Dispose logs when service is disposed
 func (instance *bService) Dispose() {
 	logger.Info(instance.Name(), "disposed")
 }
 
+// Do executes bService and delegates to aService
 func (instance *bService) Do() {
 	logger.Info(instance.Name(), "invoked")
 	instance.a.Do()
@@ -68,26 +79,31 @@ func (instance *bService) Do() {
 
 const timedServiceName = "timed_service"
 
+// timedService demonstrates timing features using TimerTask
 type timedService struct {
 	ctx.TimerTask
 
 	l logger.Logger
 }
 
+// Init creates a named logger for timedService
 func (instance *timedService) Init(_ ctx.ServiceProvider) {
 	instance.l = logger.New(instance.Name())
 
 	instance.l.Info("initialized")
 }
 
+// Name returns the service name
 func (instance *timedService) Name() string {
 	return timedServiceName
 }
 
+// Dispose logs when service is disposed
 func (instance *timedService) Dispose() {
 	instance.l.Info("disposed")
 }
 
+// AfterStart starts a timer that logs every 2 seconds
 func (instance *timedService) AfterStart() {
 	instance.l.Info("afterStart")
 	instance.StartTimer(2*time.Second, func() {
@@ -96,6 +112,7 @@ func (instance *timedService) AfterStart() {
 	instance.l.Info("afterStart2")
 }
 
+// BeforeStop stops timer and waits during shutdown
 func (instance *timedService) BeforeStop() {
 	instance.l.Info("beforeStop")
 	time.Sleep(3 * time.Second)
@@ -104,56 +121,68 @@ func (instance *timedService) BeforeStop() {
 
 const appLCServiceName = "app_lc_service"
 
+// appLCService demonstrates application lifecycle hooks
 type appLCService struct {
 	b *bService
 }
 
+// Init fetches bService dependency
 func (instance *appLCService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.b = serviceProvider.ByName(bServiceName).(*bService)
 	logger.Info(instance.Name(), "initialized")
 }
 
+// Name returns the service name
 func (instance *appLCService) Name() string {
 	return appLCServiceName
 }
 
+// Dispose logs when service is disposed
 func (instance *appLCService) Dispose() {
 	logger.Info(instance.Name(), "disposed")
 }
 
+// AfterStart logs app start and triggers bService
 func (instance *appLCService) AfterStart() {
 	logger.Info(appLCServiceName, "app started")
 	instance.b.Do()
 }
 
+// BeforeStop logs app stop event
 func (instance *appLCService) BeforeStop() {
 	logger.Info(appLCServiceName, "app stopped")
 }
 
 const connAServiceName = "conn_a_service"
 
+// connAService demonstrates service-to-service communication
 type connAService struct {
 	ctx.ServiceConnector[string, string]
 	b *bService
 }
 
+// newConnAService creates a new connAService instance
 func newConnAService() *connAService {
 	service := &connAService{}
 	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
 }
 
+// Init fetches bService dependency
 func (instance *connAService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.b = serviceProvider.ByName(bServiceName).(*bService)
 }
 
+// Name returns the service name
 func (instance *connAService) Name() string {
 	return connAServiceName
 }
 
+// Dispose is implemented for interface compliance
 func (instance *connAService) Dispose() {
 }
 
+// OnMessage handles incoming messages and triggers bService
 func (instance *connAService) OnMessage(msg string) {
 	logger.Info(connAServiceName, "msg: "+msg)
 	instance.b.Do()
@@ -161,26 +190,32 @@ func (instance *connAService) OnMessage(msg string) {
 
 const connBServiceName = "conn_b_service"
 
+// connBService demonstrates message passing
 type connBService struct {
 	ctx.ServiceConnector[string, string]
 }
 
+// newConnBService creates a new connBService instance
 func newConnBService() *connBService {
 	service := &connBService{}
 	service.ServiceConnector = ctx.NewServiceConnector[string, string](service)
 	return service
 }
 
+// Init is empty as service has no dependencies
 func (instance *connBService) Init(_ ctx.ServiceProvider) {
 }
 
+// Name returns the service name
 func (instance *connBService) Name() string {
 	return connBServiceName
 }
 
+// Dispose is implemented for interface compliance
 func (instance *connBService) Dispose() {
 }
 
+// OnMessage handles incoming messages and sends a response
 func (instance *connBService) OnMessage(msg string) {
 	logger.Info(connBServiceName, "msg: "+msg)
 	instance.Send(msg + "b")
@@ -188,90 +223,110 @@ func (instance *connBService) OnMessage(msg string) {
 
 const multiInstanceServiceNamePrefix = "multi_instance_service_"
 
+// multiInstanceService shows multi-instance service pattern
 type multiInstanceService struct {
 	name   string
 	custom string
 }
 
+// Init logs service instance initialization with custom env
 func (instance *multiInstanceService) Init(_ ctx.ServiceProvider) {
 	logger.Info(multiInstanceServiceNamePrefix+instance.name, "init:", ctx.GetEnvCustom(instance.custom, "MIS"))
 }
 
+// Name returns the unique instance name
 func (instance *multiInstanceService) Name() string {
 	return instance.name
 }
 
+// Dispose logs instance disposal
 func (instance *multiInstanceService) Dispose() {
 	logger.Info(multiInstanceServiceNamePrefix+instance.name, "dispose")
 }
 
 const multiInstanceGetServiceName = "multi_instance_get_service"
 
+// multiInstanceGetService demonstrates fetching multiInstanceService instances
 type multiInstanceGetService struct {
 	m1 *multiInstanceService
 	m2 *multiInstanceService
 }
 
+// Init fetches two multiInstanceService instances by name
 func (instance *multiInstanceGetService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.m1 = serviceProvider.ByName(multiInstanceServiceNamePrefix + "1").(*multiInstanceService)
 	instance.m2 = serviceProvider.ByName(multiInstanceServiceNamePrefix + "2").(*multiInstanceService)
 }
 
+// Name returns the service name
 func (instance *multiInstanceGetService) Name() string {
 	return multiInstanceGetServiceName
 }
 
+// AfterStart logs fetched instance names
 func (instance *multiInstanceGetService) AfterStart() {
 	logger.Info(multiInstanceGetServiceName, "deps m1:", instance.m1.Name())
 	logger.Info(multiInstanceGetServiceName, "deps m2:", instance.m2.Name())
 }
 
+// BeforeStop is empty
 func (instance *multiInstanceGetService) BeforeStop() {
 }
 
+// Dispose is implemented for interface compliance
 func (instance *multiInstanceGetService) Dispose() {
 }
 
+// ReflectiveSingletonService demonstrates reflection-based dependency injection
 type ReflectiveSingletonService interface {
 	Do() string
 }
 
+// reflectiveSingletonServiceImpl is the singleton implementation
 type reflectiveSingletonServiceImpl struct {
 	ReflectiveSingletonService
 	L logger.Logger `ctx:"singleton"`
 	A *aService     `ctx:"a_service"`
 }
 
+// Name returns singleton service's interface name
 func (instance *reflectiveSingletonServiceImpl) Name() string {
 	return u.GetInterfaceName[ReflectiveSingletonService]()
 }
 
+// AfterStart delegates to A service and logs
 func (instance *reflectiveSingletonServiceImpl) AfterStart() {
 	instance.A.Do()
 	instance.L.Info("A =", instance.A.Name())
 }
 
+// BeforeStop logs service stop
 func (instance *reflectiveSingletonServiceImpl) BeforeStop() {
 	instance.L.Info("stop")
 }
 
+// Do returns a constant string
 func (instance *reflectiveSingletonServiceImpl) Do() string {
 	return "done"
 }
 
+// reflectiveSingletonService2 demonstrates auto-wiring singleton dependencies
 type reflectiveSingletonService2 struct {
 	l logger.Logger              `ctx:""`
 	d ReflectiveSingletonService `ctx:""`
 }
 
+// Do invokes Do() on the singleton service and logs
 func (instance *reflectiveSingletonService2) Do() {
 	instance.l.Info(instance.d.Do())
 }
 
+// panicService demonstrates panic recovery handling
 type panicService struct {
 	l logger.Logger `ctx:""`
 }
 
+// AfterStart triggers a panic after delay to test recovery
 func (p *panicService) AfterStart() {
 	go func() {
 		<-time.After(10 * time.Second)
@@ -283,39 +338,48 @@ func (p *panicService) AfterStart() {
 	}()
 }
 
+// BeforeStop is empty
 func (p *panicService) BeforeStop() {
 }
 
+// anonymousService demonstrates logger injection
 type anonymousService struct {
 	L logger.Logger `ctx:""`
 }
 
+// Do logs the action with provided argument
 func (as *anonymousService) Do(who string) {
 	as.L.Info("do for", who)
 }
 
+// asConsumerService consumes anonymousService
 type asConsumerService struct {
 	AnonymousService *anonymousService `ctx:""`
 	L                logger.Logger     `ctx:""`
 }
 
+// Init logs side action
 func (a *asConsumerService) Init(ctx.ServiceProvider) {
 	a.L.Info("side actions")
 	//a.AnonymousService = serviceProvider.ByType((*anonymousService)(nil)).(*anonymousService)
 }
 
+// AfterStart passes control to anonymousService
 func (a *asConsumerService) AfterStart() {
 	a.AnonymousService.Do("asConsumerService")
 }
 
+// BeforeStop is empty
 func (a *asConsumerService) BeforeStop() {
 }
 
+// loggerDemoService shows various logger injection methods
 type loggerDemoService struct {
 	l      logger.Logger `ctx:""`
 	lNamed logger.Logger `ctx:"named-logger"`
 }
 
+// AfterStart tests different logger configurations
 func (l *loggerDemoService) AfterStart() {
 	l.l.Debug("debug demo", 1)
 	l.lNamed.Debug("debug demo", 3)
@@ -329,9 +393,11 @@ func (l *loggerDemoService) AfterStart() {
 	logger.Error("tag-logger", "error demo", 3)
 }
 
+// BeforeStop is empty
 func (l *loggerDemoService) BeforeStop() {
 }
 
+// envInjectDemoService demonstrates environment variable injection
 type envInjectDemoService struct {
 	l                logger.Logger            `ctx:""`
 	envValue         *ctx.EnvValue            `env:"DURATION"`
@@ -340,19 +406,23 @@ type envInjectDemoService struct {
 	envMap           map[string]*ctx.EnvValue `env:"MAP"`
 }
 
+// AfterStart logs duration value from environment
 func (e *envInjectDemoService) AfterStart() {
 	e.l.Info(e.envValue.AsDuration().String())
 }
 
+// BeforeStop is empty
 func (e *envInjectDemoService) BeforeStop() {
 }
 
+// ctxInjectService shows application context injection
 type ctxInjectService struct {
 	l    logger.Logger  `ctx:""`
 	ctx1 ctx.AppContext `ctx:"CTX"`
 	ctx2 ctx.AppContext
 }
 
+// AfterStart logs context stats and health status
 func (instance *ctxInjectService) AfterStart() {
 	go func() {
 		instance.l.Info(instance.ctx1.Stats())
@@ -360,10 +430,12 @@ func (instance *ctxInjectService) AfterStart() {
 	}()
 }
 
+// Init fetches application context by name
 func (instance *ctxInjectService) Init(serviceProvider ctx.ServiceProvider) {
 	instance.ctx2 = serviceProvider.ByName("CTX").(ctx.AppContext)
 }
 
+// envDefInjectService shows default values in environment injection
 type envDefInjectService struct {
 	logger.Logger `ctx:""`
 	val1          time.Duration            `env:"DEF_VALUE_TEST1=10s"`
@@ -378,6 +450,7 @@ type envDefInjectService struct {
 	val10         map[string]*ctx.EnvValue `env:"UNDEFINED_MAP"`
 }
 
+// AfterStart logs environment values and default settings
 func (e *envDefInjectService) AfterStart() {
 	e.Info("val1 =", e.val1.String())
 	e.Info("val2 =", e.val2)
@@ -392,80 +465,98 @@ func (e *envDefInjectService) AfterStart() {
 	e.Info(fmt.Sprintf("val10 = %v", e.val10))
 }
 
+// BeforeStop is empty
 func (e *envDefInjectService) BeforeStop() {
 }
 
+// intRefService demonstrates interface implementation via reflection
 type intRefService interface {
 	DoSomething()
 }
 
+// intRefServiceImpl implements intRefService
 type intRefServiceImpl struct {
 	intRefService `ctx:"impl"`
 	l             logger.Logger `ctx:""`
 }
 
+// DoSomething performs the interface's method
 func (i *intRefServiceImpl) DoSomething() {
 	i.l.Info("do something")
 }
 
+// intRef2Service uses an intRefService implementation
 type intRef2Service struct {
 	srv intRefService `ctx:""`
 }
 
+// AfterStart calls the injected service's method
 func (i *intRef2Service) AfterStart() {
 	i.srv.DoSomething()
 }
 
+// BeforeStop is empty
 func (i *intRef2Service) BeforeStop() {
 }
 
+// ConstructableService demonstrates the Constructable interface
 type ConstructableService struct {
 	l   logger.Logger  `ctx:""`
 	ctx ctx.AppContext `ctx:"inject(CTX)"`
 }
 
+// Init uses application context during construction
 func (s *ConstructableService) Init() {
 	_, stateName := s.ctx.State()
 	s.l.Info("initialization with context state:", stateName)
 }
 
+// defEnvValue shows environment variable with empty default
 type defEnvValue struct {
 	val string `env:"UNDEFINED_ENV_VALUE="`
 }
 
+// Init logs the default value (empty string)
 func (s *defEnvValue) Init() {
 	logger.Info("DEF_VAL", "val =", s.val)
 }
 
+// AfterStart confirms environment value matches
 func (s *defEnvValue) AfterStart() {
 	logger.Info("DEF_VAL", "val =", ctx.GetEnv("UNDEFINED_ENV_VALUE"))
 }
 
+// BeforeStop is empty
 func (s *defEnvValue) BeforeStop() {
 }
 
+// slowDisposingService demonstrates disposal delay
 type slowDisposingService struct {
 	l logger.Logger `ctx:""`
 }
 
+// Dispose delays disposal by 10 seconds
 func (s *slowDisposingService) Dispose() {
 	s.l.Info("start disposing...")
 	<-time.After(time.Second * 10)
 	s.l.Info("...disposed")
 }
 
+// envCustomService shows custom environment variables
 type envCustomService struct {
 	key100 int `env:"KEY100"`
 	key101 int `env:"KEY101"`
 	key103 int `env:"KEY103"`
 }
 
+// Init prints custom environment values
 func (s *envCustomService) Init() {
 	println("key100 =", s.key100)
 	println("key101 =", s.key101)
 	println("key103 =", s.key103)
 }
 
+// newTags demonstrates newer context tag formats
 type newTags struct {
 	l1 logger.Logger `ctx:""`
 	l2 logger.Logger `ctx:"named_logger_2"`
@@ -483,6 +574,7 @@ type newTags struct {
 	key0   string        `env:"KEY0="`
 }
 
+// Init logs tag configuration and injected instance equality
 func (s *newTags) Init() {
 	s.l1.Info("init tags", s.key100, s.key999)
 	s.l2.Info("init tags", s.key100, s.key999)
@@ -493,6 +585,7 @@ func (s *newTags) Init() {
 	s.l1.Info("key0 =", s.key0)
 }
 
+// slogExample demonstrates structured logging with slog
 type slogExample struct {
 	l1 *slog.Logger  `ctx:""`
 	l2 *slog.Logger  `ctx:"named_slog1"`
@@ -502,6 +595,7 @@ type slogExample struct {
 	l6 logger.Logger `ctx:"logger loggerAttr(tag1=val1) loggerAttr(tag2=val2) loggerAttr(tag3=val3)"`
 }
 
+// Init tests multiple slog handler configurations
 func (s *slogExample) Init() {
 	s.l1.Info("test", slog.String("test", "hello world"))
 	s.l2.Info("test")
@@ -511,18 +605,21 @@ func (s *slogExample) Init() {
 	s.l6.Warn("test", 6)
 }
 
+// envStruct is used for EnvValue function demo
 type envStruct struct {
 	l      logger.Logger `ctx:""`
 	param1 string        `env:"PARAM1=param1"`
 	key100 int           `env:"KEY100"`
 }
 
+// contextService demonstrates context cancellation handling
 type contextService struct {
 	context1 context.Context `ctx:""`
 	context2 context.Context `ctx:"context"`
 	l        logger.Logger   `ctx:""`
 }
 
+// AfterStart logs when contexts are done
 func (s *contextService) AfterStart() {
 	go func() {
 		<-s.context1.Done()
@@ -534,10 +631,12 @@ func (s *contextService) AfterStart() {
 	}()
 }
 
+// panicExample demonstrates panic handling in lifecycle methods
 type panicExample struct {
 	l logger.Logger `ctx:""`
 }
 
+// Init recovers from a panic in a nested function
 func (p *panicExample) Init() error {
 
 	//panic("test panic 1")
@@ -553,14 +652,17 @@ func (p *panicExample) Init() error {
 	return errors.New("can't create")
 }
 
+// AfterStart panics to test shutdown behavior
 func (p *panicExample) AfterStart() {
 	panic("test panic 2")
 }
 
+// BeforeStop panics during shutdown
 func (p *panicExample) BeforeStop() {
 	panic("test panic 3")
 }
 
+// Dispose panics during resource cleanup
 func (p *panicExample) Dispose() {
 	panic("test panic 4")
 }
