@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/health"
@@ -649,7 +648,8 @@ func (p *panicExample) Init() error {
 		p.l.Info("result:", res)
 	}
 
-	return errors.New("can't create")
+	//return errors.New("can't create")
+	return nil
 }
 
 // AfterStart panics to test shutdown behavior
