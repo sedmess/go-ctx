@@ -4,6 +4,9 @@
 
 The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration.
 
+## DeepWiki Documentation
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/sedmess/go-ctx)
+
 ## Features
 
 - **Service Lifecycle**: Services can implement `Initializable`, `StartAware`, `StopAware`, and `Disposable` interfaces
