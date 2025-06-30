@@ -669,18 +669,22 @@ func (p *panicExample) Dispose() {
 }
 
 type autoctxExample struct {
-	l logger.Logger `ctx:""`
+	l     logger.Logger `ctx:""`
+	param int           `env:"AUTO_PARAM"`
 }
 
 func (e *autoctxExample) Init() {
-	e.l.Info("it works!")
+	e.l.Info("it works!", e.param)
 }
 
 func main() {
+	ctx.SetEnv("AUTO_PARAM", "10")
+
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
 	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
 	_ = os.Setenv("SLOG_HANDLER", "legacy")
+	_ = os.Setenv("AUTO_PARAM", "20")
 
 	ctx.SetSlogWriter(
 		os.Stdout,

@@ -21,6 +21,11 @@ func initProperties() {
 	propertiesOnce.Do(func() {
 		envFileMap := make(map[string]string)
 
+		appDefaultProperties.Range(func(key, value any) bool {
+			envFileMap[key.(string)] = value.(string)
+			return true
+		})
+
 		readFile(defaultPropertiesFileName, envFileMap)
 		readFile(defaultCustomPropertiesFileName, envFileMap)
 
@@ -46,7 +51,12 @@ func readFile(path string, properties map[string]string) {
 		}
 		properties[substrs[0]] = substrs[1]
 	}
+}
 
+var appDefaultProperties sync.Map
+
+func SetEnv(key string, value string) {
+	appDefaultProperties.Store(key, value)
 }
 
 var envTypes = map[reflect.Type]func(e *EnvValue) any{
