@@ -2,6 +2,7 @@ package ctx_testing
 
 import (
 	"github.com/sedmess/go-ctx/ctx"
+	"github.com/sedmess/go-ctx/ctx/autoctx"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
@@ -30,6 +31,10 @@ type testingApplication struct {
 
 func CreateTestingApplication(servicePackages ...ctx.ServicePackage) TestingApplication {
 	return &testingApplication{params: make(map[string]string), basePackages: servicePackages, testingPackages: make([]ctx.ServicePackage, 0)}
+}
+
+func CreateAutoTestingApplication() TestingApplication {
+	return &testingApplication{params: make(map[string]string), basePackages: []ctx.ServicePackage{ctx.PackageOf(autoctx.RegisteredServices()...)}, testingPackages: make([]ctx.ServicePackage, 0)}
 }
 
 func Instead[T any](service T) ctx.NamedService {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sedmess/go-ctx/ctx"
+	"github.com/sedmess/go-ctx/ctx/autoctx"
 	"github.com/sedmess/go-ctx/ctx/health"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
@@ -667,6 +668,14 @@ func (p *panicExample) Dispose() {
 	panic("test panic 4")
 }
 
+type autoctxExample struct {
+	l logger.Logger `ctx:""`
+}
+
+func (e *autoctxExample) Init() {
+	e.l.Info("it works!")
+}
+
 func main() {
 	_ = os.Setenv("SLOG_LEVEL", "debug")
 	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
@@ -738,9 +747,11 @@ func main() {
 			&newTags{},
 			&slogExample{},
 			&contextService{},
-			&panicExample{},
+			ctx.Typed[panicExample](),
+			ctx.TypedWithName[autoctxExample]("autoctx2"),
 		),
 		ctx.PackageOf(ctx.ConnectServices(connAServiceName, connBServiceName)),
+		ctx.PackageOf(autoctx.RegisteredServices()...),
 	)
 
 	go func() {

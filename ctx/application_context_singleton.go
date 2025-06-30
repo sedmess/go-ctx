@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"github.com/sedmess/go-ctx/ctx/autoctx"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"os"
@@ -33,11 +34,15 @@ func (a *application) Join() {
 }
 
 func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
-	InitSlog()
 	return startApplication(servicePackages)
 }
 
+func CreateAutoContextualizedApplication() Application {
+	return startApplication([]ServicePackage{PackageOf(autoctx.RegisteredServices()...)})
+}
+
 func startApplication(servicePackages []ServicePackage) Application {
+	InitSlog()
 	ctxInstance := func() *appContext {
 		globalLock.Lock()
 		defer globalLock.Unlock()

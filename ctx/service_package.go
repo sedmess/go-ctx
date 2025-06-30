@@ -1,5 +1,7 @@
 package ctx
 
+import "reflect"
+
 type ServicePackage struct {
 	namedServices map[string]any
 	services      []any
@@ -31,6 +33,18 @@ func WithName(name string, service any) NamedService {
 	return NamedService{name: name, svc: service}
 }
 
+func Typed[T any]() NamedService {
+	typeFor := reflect.TypeFor[T]()
+	value := reflect.New(typeFor).Interface()
+	return NamedService{svc: value}
+}
+
+func TypedWithName[T any](name string) NamedService {
+	s := Typed[T]()
+	s.name = name
+	return s
+}
+
 func PackageOf(services ...any) ServicePackage {
 	pkg := ServicePackage{
 		namedServices: make(map[string]any),
@@ -39,7 +53,11 @@ func PackageOf(services ...any) ServicePackage {
 
 	for _, svc := range services {
 		if named, ok := svc.(NamedService); ok {
-			pkg.namedServices[named.name] = named.svc
+			if named.name != "" {
+				pkg.namedServices[named.name] = named.svc
+			} else {
+				pkg.services = append(pkg.services, named.svc)
+			}
 		} else {
 			pkg.services = append(pkg.services, svc)
 		}
