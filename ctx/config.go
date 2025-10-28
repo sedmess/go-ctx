@@ -2,13 +2,14 @@ package ctx
 
 import (
 	"bufio"
-	"github.com/sedmess/go-ctx/ctx/logger"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sedmess/go-ctx/ctx/logger"
 )
 
 const defaultPropertiesFileName = ".env"
@@ -28,9 +29,22 @@ func initProperties() {
 
 		readFile(defaultPropertiesFileName, envFileMap)
 		readFile(defaultCustomPropertiesFileName, envFileMap)
+		readArgs(envFileMap)
 
 		properties = envFileMap
 	})
+}
+
+func readArgs(properties map[string]string) {
+	for _, arg := range os.Args[1:] {
+		if a, found := strings.CutPrefix(arg, "--"); found {
+			substrs := strings.SplitN(a, "=", 2)
+			if len(substrs) < 2 {
+				continue
+			}
+			properties[strings.ToUpper(substrs[0])] = substrs[1]
+		}
+	}
 }
 
 func readFile(path string, properties map[string]string) {
@@ -49,7 +63,7 @@ func readFile(path string, properties map[string]string) {
 		if len(substrs) < 2 {
 			continue
 		}
-		properties[substrs[0]] = substrs[1]
+		properties[strings.ToUpper(substrs[0])] = substrs[1]
 	}
 }
 
