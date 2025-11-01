@@ -2,12 +2,14 @@ package nopanic
 
 import (
 	"fmt"
+
 	"github.com/sedmess/go-ctx/u"
 )
 
 type PanicWrapperError interface {
 	Error() string
 	Stack() u.CallStack
+	Reason() string
 }
 
 type panicWrapperError struct {
@@ -21,6 +23,10 @@ func (p *panicWrapperError) Error() string {
 
 func (p *panicWrapperError) Stack() u.CallStack {
 	return p.stack
+}
+
+func (p *panicWrapperError) Reason() string {
+	return p.reason
 }
 
 func wrapPanicReason(reason any) PanicWrapperError {

@@ -2,8 +2,9 @@ package ctx
 
 import (
 	"context"
-	"github.com/sedmess/go-ctx/ctx/health"
 	"reflect"
+
+	"github.com/sedmess/go-ctx/ctx/health"
 )
 
 type ServiceProvider interface {
