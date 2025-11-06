@@ -182,3 +182,20 @@ func (ch StreamingChan[T]) CollectToSlice() ([]T, error) {
 	})
 	return result, err
 }
+
+func (ch StreamingChan[T]) ToChan(outBufSize int) (outCh chan<- T, errCh chan<- error) {
+	outCh = make(chan T, outBufSize)
+	errCh = make(chan error, 1)
+	go func() {
+		defer close(errCh)
+		defer close(outCh)
+		err := ch.ForEachChanElem(func(data T) error {
+			outCh <- data
+			return nil
+		})
+		if err != nil {
+			errCh <- err
+		}
+	}()
+	return
+}
