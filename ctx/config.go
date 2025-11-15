@@ -107,6 +107,7 @@ var envTypes = map[reflect.Type]func(e *EnvValue) any{
 	reflect.TypeOf(time.Second): func(e *EnvValue) any {
 		return e.AsDuration()
 	},
+	reflect.TypeOf(time.Unix(0, 0)): func(e *EnvValue) any { return e.AsTime() },
 	reflect.TypeOf(make(map[string]*EnvValue)): func(e *EnvValue) any {
 		return e.AsMapDefault()
 	},
@@ -335,6 +336,24 @@ func (instance *EnvValue) AsDuration() time.Duration {
 func (instance *EnvValue) AsDurationDefault(def time.Duration) time.Duration {
 	if instance.IsPresent() {
 		return instance.AsDuration()
+	} else {
+		return def
+	}
+}
+
+func (instance *EnvValue) AsTime() time.Time {
+	instance.fatalIfNotExists()
+	if val, err := time.Parse(time.RFC3339, instance.value); err != nil {
+		panic(instance.name + ": can't convert to time.Time using RFC3339 format: " + instance.value)
+		return time.Now()
+	} else {
+		return val
+	}
+}
+
+func (instance *EnvValue) AsTimeDefault(def time.Time) time.Time {
+	if instance.IsPresent() {
+		return instance.AsTime()
 	} else {
 		return def
 	}

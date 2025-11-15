@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
 	"github.com/sedmess/go-ctx/ctx"
 	"github.com/sedmess/go-ctx/ctx/autoctx"
 	"github.com/sedmess/go-ctx/ctx/health"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
 	"github.com/sedmess/go-ctx/u/nopanic"
-	"log/slog"
-	"os"
-	"time"
 )
 
 const aServiceName = "a_service"
@@ -677,6 +678,18 @@ func (e *autoctxExample) Init() {
 	e.l.Info("it works!", e.param)
 }
 
+type timeParamExample struct {
+	l logger.Logger `ctx:""`
+
+	date1 time.Time `env:"DATE1"`
+	date2 time.Time `env:"DATE2=3000-01-01T00:00:00+00:00"`
+}
+
+func (t *timeParamExample) Init() {
+	t.l.Info("DATE1 =", t.date1)
+	t.l.Info("DATE1 =", t.date2)
+}
+
 func main() {
 	ctx.SetEnv("AUTO_PARAM", "10")
 
@@ -701,6 +714,7 @@ func main() {
 	_ = os.Setenv("DURATION", "60s")
 	_ = os.Setenv("STR_SET", "s1,s2,s3")
 	_ = os.Setenv("INT_SET", "1,2,3")
+	_ = os.Setenv("DATE1", "2025-11-15T10:30:08+00:00")
 
 	println(ctx.GetEnv("DURATION").AsDuration().String())
 	println(fmt.Sprintf("%v", ctx.GetEnv("STR_SET").AsStringSet()))
@@ -751,6 +765,7 @@ func main() {
 			&newTags{},
 			&slogExample{},
 			&contextService{},
+			new(timeParamExample),
 			ctx.Typed[panicExample](),
 			ctx.TypedWithName[autoctxExample]("autoctx2"),
 		),
