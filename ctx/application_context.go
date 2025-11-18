@@ -2,10 +2,11 @@ package ctx
 
 import (
 	"context"
-	"github.com/sedmess/go-ctx/ctx/logger"
-	"github.com/sedmess/go-ctx/u/nopanic"
 	"reflect"
 	"sync"
+
+	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
 )
 
 type state struct {
@@ -96,7 +97,8 @@ func (ctx *appContext) start() {
 			if err := nopanic.Run(func() {
 				ctx.initService(serviceInstance)
 			}); err != nil {
-				logger.Error(ctxTag, "on initialization ["+serviceName+"]:", err.Error())
+				logger.Debug(ctxTag, "on initialization ["+serviceName+"]:", err.Error())
+				logger.Error(ctxTag, "on initialization ["+serviceName+"]:", err.Reason())
 
 				ctx.disposeServices()
 				targetState = stateUsed

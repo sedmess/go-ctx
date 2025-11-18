@@ -2,10 +2,11 @@ package ctx
 
 import (
 	"context"
-	"github.com/sedmess/go-ctx/ctx/logger"
-	"github.com/sedmess/go-ctx/u/nopanic"
 	"log/slog"
 	"reflect"
+
+	"github.com/sedmess/go-ctx/ctx/logger"
+	"github.com/sedmess/go-ctx/u/nopanic"
 )
 
 type reflectiveServiceWrapper struct {
@@ -127,13 +128,17 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		if err := nopanic.Run(func() {
 			v.Init(serviceProvider)
 		}); err != nil {
-			return err
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
 		}
 	}
 	if v, ok := w.sRef.(InitializableE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(serviceProvider)
-		}); err != nil {
+		}); nopanic.IsPanicWrapperError(err) {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.(nopanic.PanicWrapperError).ToReasonError()
+		} else if err != nil {
 			return err
 		}
 	}
@@ -141,13 +146,17 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		if err := nopanic.Run(func() {
 			v.Init(w.ctx, serviceProvider)
 		}); err != nil {
-			return err
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
 		}
 	}
 	if v, ok := w.sRef.(InitializableContextE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(w.ctx, serviceProvider)
-		}); err != nil {
+		}); nopanic.IsPanicWrapperError(err) {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.(nopanic.PanicWrapperError).ToReasonError()
+		} else if err != nil {
 			return err
 		}
 	}
@@ -155,13 +164,17 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		if err := nopanic.Run(func() {
 			v.Init()
 		}); err != nil {
-			return err
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
 		}
 	}
 	if v, ok := w.sRef.(ConstructableE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init()
-		}); err != nil {
+		}); nopanic.IsPanicWrapperError(err) {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.(nopanic.PanicWrapperError).ToReasonError()
+		} else if err != nil {
 			return err
 		}
 	}
@@ -169,13 +182,17 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		if err := nopanic.Run(func() {
 			v.Init(w.ctx)
 		}); err != nil {
-			return err
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
 		}
 	}
 	if v, ok := w.sRef.(ConstructableContextE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(w.ctx)
-		}); err != nil {
+		}); nopanic.IsPanicWrapperError(err) {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.(nopanic.PanicWrapperError).ToReasonError()
+		} else if err != nil {
 			return err
 		}
 	}
@@ -186,7 +203,12 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 func (w *reflectiveServiceWrapper) afterStart() error {
 	if v, ok := w.sRef.(StartAware); ok {
 		logger.Debug(w.name, "is livecycle-aware, notify it for start event")
-		return nopanic.Run(v.AfterStart)
+		if err := nopanic.Run(v.AfterStart); err != nil {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
+		} else {
+			return nil
+		}
 	} else {
 		return nil
 	}
@@ -195,7 +217,12 @@ func (w *reflectiveServiceWrapper) afterStart() error {
 func (w *reflectiveServiceWrapper) beforeStop() error {
 	if v, ok := w.sRef.(StopAware); ok {
 		logger.Debug(w.name, "is livecycle-aware, notify it for stop event")
-		return nopanic.Run(v.BeforeStop)
+		if err := nopanic.Run(v.BeforeStop); err != nil {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
+		} else {
+			return nil
+		}
 	} else {
 		return nil
 	}
@@ -203,10 +230,16 @@ func (w *reflectiveServiceWrapper) beforeStop() error {
 
 func (w *reflectiveServiceWrapper) dispose() error {
 	if v, ok := w.sRef.(Disposable); ok {
-		return nopanic.Run(v.Dispose)
+		if err := nopanic.Run(v.Dispose); err != nil {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.ToReasonError()
+		}
 	}
 	if v, ok := w.sRef.(DisposableE); ok {
-		if err := nopanic.RunE(v.Dispose); err != nil {
+		if err := nopanic.RunE(v.Dispose); nopanic.IsPanicWrapperError(err) {
+			logger.Debug(ctxTag, "panic:", err.Error())
+			return err.(nopanic.PanicWrapperError).ToReasonError()
+		} else if err != nil {
 			return err
 		}
 	}

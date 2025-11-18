@@ -1,15 +1,19 @@
 package nopanic
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sedmess/go-ctx/u"
 )
 
+var errSample = &panicWrapperError{}
+
 type PanicWrapperError interface {
 	Error() string
 	Stack() u.CallStack
 	Reason() string
+	ToReasonError() error
 }
 
 type panicWrapperError struct {
@@ -27,6 +31,14 @@ func (p *panicWrapperError) Stack() u.CallStack {
 
 func (p *panicWrapperError) Reason() string {
 	return p.reason
+}
+
+func (p *panicWrapperError) ToReasonError() error {
+	return errors.New(p.Reason())
+}
+
+func IsPanicWrapperError(err error) bool {
+	return errors.Is(err, errSample)
 }
 
 func wrapPanicReason(reason any) PanicWrapperError {
