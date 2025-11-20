@@ -24,6 +24,19 @@ func FlatMap[P any, Q any](source []P, mapper func(data P) []Q) []Q {
 	return result
 }
 
+func Filter[P any](source []P, predicate func(P) bool) []P {
+	if source == nil {
+		return nil
+	}
+	result := make([]P, 0)
+	for i := range source {
+		if predicate(source[i]) {
+			result = append(result, source[i])
+		}
+	}
+	return result
+}
+
 func ToMapUnique[V any, K comparable](source []V, mapper func(data V) K) map[K]V {
 	if source == nil {
 		return nil
