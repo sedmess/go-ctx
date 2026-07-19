@@ -4,6 +4,9 @@
 
 The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration.
 
+See [Architecture](docs/architecture.md) for package boundaries, dependency injection,
+configuration precedence, and the application lifecycle.
+
 ## DeepWiki Documentation
 [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/sedmess/go-ctx)
 
