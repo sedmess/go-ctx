@@ -1,27 +1,26 @@
 <!--
 Sync Impact Report
-- Version change: unversioned template -> 1.0.0
+- Version change: 1.0.0 -> 1.1.0
 - Modified principles:
-  - Placeholder Principle 1 -> I. Stable Library Contracts
-  - Placeholder Principle 2 -> II. Explicit Package Boundaries
-  - Placeholder Principle 3 -> III. Wiring and Configuration Are Contracts
-  - Placeholder Principle 4 -> IV. Lifecycle and Concurrency Safety
-  - Placeholder Principle 5 -> V. Behavioral Verification and Documentation
-- Added sections:
-  - Architecture and Technical Constraints
-  - Development Workflow and Quality Gates
+  - I. Stable Library Contracts: raised the supported Go baseline from 1.21 to 1.26 and
+    made future baseline increases explicit breaking changes with synchronized release
+    documentation requirements
+- Modified sections:
+  - Architecture and Technical Constraints: production compatibility now targets Go 1.26
+  - Development Workflow and Quality Gates: validation must use the declared Go baseline
+- Added sections: none
 - Removed sections: none
 - Templates requiring updates:
   - ✅ updated: .specify/templates/plan-template.md
-  - ✅ updated: .specify/templates/spec-template.md
   - ✅ updated: .specify/templates/tasks-template.md
+  - ✅ reviewed: .specify/templates/spec-template.md; no Go baseline guidance present
 - Runtime guidance:
-  - ✅ created: docs/architecture.md
-  - ✅ updated: readme.md
-  - ✅ reviewed: AGENTS.md and utils.md; no changes required
+  - ✅ updated: AGENTS.md, readme.md, docs/architecture.md, docs/migration-v0.12.0.md
+  - ✅ updated: go.mod and .github/workflows/ci.yml
+  - ✅ updated: specs/001-fix-runtime-contracts planning, contracts, tasks, and quickstart
+  - ✅ updated: generic reflection helpers to use the Go 1.26-supported reflect.TypeFor API
 - Command guidance:
-  - ✅ updated: .agents/skills/speckit-tasks/SKILL.md
-  - ✅ reviewed: remaining .agents/skills/speckit-*/SKILL.md files; no stale guidance found
+  - ✅ reviewed: all .agents/skills/speckit-*/SKILL.md files; no Go baseline guidance present
 - Follow-up TODOs: none
 -->
 # go-ctx Constitution
@@ -34,8 +33,10 @@ Sync Impact Report
 reflection tags, configuration precedence, lifecycle callbacks, and observable failure
 behavior are treated as public contracts. Changes MUST be additive by default. A breaking
 change requires explicit scope, migration guidance, updated examples, and an intentional
-semantic-version release decision. The Go 1.21 language baseline MUST remain supported
-unless a baseline increase is explicitly approved and documented.
+semantic-version release decision. The Go 1.26 language and toolchain baseline MUST remain
+supported until a future baseline increase is explicitly approved and documented. Any
+future baseline increase MUST be treated as a breaking compatibility change and synchronized
+across module metadata, CI, consumer migration guidance, and the release decision.
 
 Rationale: consumers compile the module into their own processes, so a small behavioral
 change can break applications without any repository-local signal.
@@ -94,8 +95,8 @@ use reflection-heavy APIs without reading implementation code.
 
 - The module path MUST remain `github.com/sedmess/go-ctx` unless a separately approved
   migration changes the public import path.
-- Production code MUST remain compatible with Go 1.21 and SHOULD prefer the standard
-  library. Any external dependency requires a plan-level justification.
+- Production code MUST remain compatible with the declared Go 1.26 baseline and SHOULD
+  prefer the standard library. Any external dependency requires a plan-level justification.
 - `ctx` is the orchestration boundary. Its focused subpackages and generic helper packages
   MUST follow the dependency direction documented in `docs/architecture.md`.
 - The supported runtime is an in-process service container with a process-wide active
@@ -114,7 +115,8 @@ use reflection-heavy APIs without reading implementation code.
 2. An implementation plan MUST name real package and file boundaries, justify added
    dependencies, and pass every Constitution Check before implementation begins.
 3. Edited Go files MUST be formatted with `gofmt`. The repository MUST pass
-   `go build ./...`, `go test ./...`, and `go vet ./...` before completion.
+   `go build ./...`, `go test ./...`, and `go vet ./...` using the declared Go baseline
+   before completion.
 4. Work affecting goroutines, channels, synchronization, application state, timers, or
    lifecycle callbacks MUST also pass `go test -race ./...`.
 5. Regression tests MUST accompany behavior changes unless the change is documentation-only;
@@ -140,4 +142,4 @@ plan's Complexity Tracking section; an exception cannot waive a principle silent
 `docs/architecture.md` is the implementation-oriented architecture reference and MUST remain
 consistent with this constitution.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-19 | **Last Amended**: 2026-07-19
+**Version**: 1.1.0 | **Ratified**: 2026-07-19 | **Last Amended**: 2026-07-21

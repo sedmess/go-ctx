@@ -27,14 +27,14 @@ func (s *serviceB) getAVal() string {
 type task struct {
 	l logger.Logger `ctx:""`
 
-	c string `env:"C"`
+	c string `env:"C=default-c"`
 
 	b *serviceB `ctx:""`
 }
 
 func (t *task) Run() {
 	t.l.Info("start task...")
-	_ = ctx.GetEnv("A").AsString()
+	t.l.Info("A =", ctx.GetEnv("A").AsStringDefault("default-a"))
 	t.l.Info("C =", t.c)
 	t.l.Info(t.b.getAVal())
 	t.l.Info("...task finished")

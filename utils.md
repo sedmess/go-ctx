@@ -13,6 +13,8 @@ Provides panic recovery utilities to safely run functions that might panic.
 type PanicWrapperError interface {
 	Error() string
 	Stack() u.CallStack
+	Reason() string
+	ToReasonError() error
 }
 
 // Implementations of panicWrapperError store error and stack trace
@@ -25,7 +27,26 @@ func RunE(fn func() error) (err error)
 
 // RunResult: Executes a function returning (T, error) and recovers panics
 func RunResult[T any](fn func() (T, error)) (res T, err error)
+
+// Recognizes direct or standard-library-wrapped captured panics.
+func IsPanicWrapperError(err error) bool
 ```
+
+Use `IsPanicWrapperError` for classification. If wrapper-specific methods are required,
+use `errors.As`; a direct type assertion is not safe when another error wraps the captured
+panic.
+
+## Package: utils/channels
+
+`StreamingChan.ToChan` converts stream elements into producer-owned receive-only channels:
+
+```go
+func (ch StreamingChan[T]) ToChan(outBufSize int) (<-chan T, <-chan error)
+```
+
+Values retain source order. The error channel emits at most one source error, and both
+channels close after conversion. Slow consumers apply backpressure. Because this method has
+no cancellation parameter, consumers must drain the outputs rather than abandon them.
 
 ## Package: u
 

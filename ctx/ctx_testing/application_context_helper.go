@@ -7,6 +7,7 @@ import (
 	"github.com/sedmess/go-ctx/u"
 	"os"
 	"reflect"
+	"sort"
 	"sync"
 )
 
@@ -69,59 +70,92 @@ func (app *testingApplication) WithParameter(key string, value string) TestingAp
 func (app *testingApplication) Run(runFn func() int) int {
 	app.mu.Lock()
 	defer app.mu.Unlock()
+	return withParameters(app.params, func() int {
+		services := mergeServicePackages(app.basePackages, app.testingPackages)
+		app.app = ctx.CreateContextualizedApplication(ctx.PackageOf(services...))
+		defer func() { app.app.Stop().Join() }()
 
-	paramsBackup := make(map[string]string)
-	for key, value := range app.params {
-		currentValue := os.Getenv(key)
-		if currentValue != "" {
-			paramsBackup[key] = currentValue
+		return runFn()
+	})
+}
+
+func withParameters(params map[string]string, runFn func() int) int {
+	type envBackup struct {
+		value   string
+		present bool
+	}
+	paramsBackup := make(map[string]envBackup)
+	for key := range params {
+		currentValue, present := os.LookupEnv(key)
+		paramsBackup[key] = envBackup{value: currentValue, present: present}
+	}
+	defer func() {
+		for key := range params {
+			previous := paramsBackup[key]
+			if previous.present {
+				logger.Debug(ctxTag, "restored env", key)
+				_ = os.Setenv(key, previous.value)
+			} else {
+				_ = os.Unsetenv(key)
+			}
+		}
+	}()
+	for key, value := range params {
+		if paramsBackup[key].present {
 			logger.Debug(ctxTag, "set env", key, ", old value stored")
 		} else {
 			logger.Debug(ctxTag, "set env", key)
 		}
 		_ = os.Setenv(key, value)
 	}
-	defer func() {
-		for key := range app.params {
-			prevValue := paramsBackup[key]
-			if prevValue != "" {
-				logger.Debug(ctxTag, "restored env", key)
-				_ = os.Setenv(key, prevValue)
-			} else {
-				_ = os.Setenv(key, "")
-			}
-		}
-	}()
+	return runFn()
+}
 
+func mergeServicePackages(basePackages, testingPackages []ctx.ServicePackage) []any {
 	serviceMap := make(map[string]any)
+	testingNames := make(map[string]struct{})
 
-	for _, pkg := range app.basePackages {
+	for _, pkg := range basePackages {
 		pkg.ForEach(func(service any, name string) {
 			if name == "" {
 				name = ctx.DefineServiceName(service)
+			}
+			if _, duplicate := serviceMap[name]; duplicate {
+				panic("duplicate base service [" + name + "]")
 			}
 			serviceMap[name] = service
 		})
 	}
-	for _, pkg := range app.testingPackages {
+	for _, pkg := range testingPackages {
 		pkg.ForEach(func(service any, name string) {
+			explicitName := name != ""
 			if name == "" {
 				name = ctx.DefineServiceName(service)
 			}
+			if _, duplicate := testingNames[name]; duplicate {
+				panic("duplicate testing service [" + name + "]")
+			}
+			testingNames[name] = struct{}{}
 			if bSvc, found := serviceMap[name]; found {
+				if !explicitName {
+					panic("testing service [" + name + "] must use an explicit substitution name")
+				}
 				logger.Debug(ctxTag, "substitute base service ["+name+"] of type", reflect.TypeOf(bSvc).String(), "with", reflect.TypeOf(service).String())
 			}
 			serviceMap[name] = service
 		})
 	}
 
-	services := make([]any, 0)
-	for name, service := range serviceMap {
+	names := make([]string, 0, len(serviceMap))
+	for name := range serviceMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	services := make([]any, 0, len(names))
+	for _, name := range names {
+		service := serviceMap[name]
 		services = append(services, ctx.WithName(name, service))
 	}
 
-	app.app = ctx.CreateContextualizedApplication(ctx.PackageOf(services...))
-	defer func() { app.app.Stop().Join() }()
-
-	return runFn()
+	return services
 }

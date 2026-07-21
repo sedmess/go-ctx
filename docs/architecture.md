@@ -1,6 +1,6 @@
 # go-ctx Architecture
 
-This document describes the architecture implemented by the repository as of 2026-07-19.
+This document describes the architecture implemented by the repository as of 2026-07-21.
 The [project constitution](../.specify/memory/constitution.md) defines the mandatory
 engineering constraints; this guide explains how those constraints map to packages and
 runtime behavior.
@@ -19,6 +19,11 @@ runtime behavior.
 It is a library rather than a network service or deployment platform. It owns no database,
 transport protocol, or persistent state. Applications compose it directly and remain
 responsible for domain behavior and external integrations.
+
+The module declares Go 1.26 as its minimum supported language and toolchain baseline. A
+consumer environment must provide Go 1.26 or later; raising that baseline again is a
+breaking compatibility decision that requires synchronized module, CI, and migration
+guidance updates.
 
 ## Design Goals
 
@@ -72,10 +77,15 @@ package, except `ctx/ctx_testing`, which is intentionally a public consumer of `
 start an application. The returned `Application` exposes `Stop` and `Join`. Convenience
 entry points `Run` and `RunAuto` add an `AppTask`, execute it, and stop the application.
 
-The package keeps a process-wide current `appContext` for `GetService`,
-`GetTypedService`, and internal event delivery. The currently supported operating model is
+The package keeps a process-wide current `appContext` for `GetService` and
+`GetTypedService`. The currently supported operating model is
 one active application context per process. Restarting after a completed stop is supported;
 multiple simultaneous contexts are not an isolation boundary.
+
+Each returned application owns a close-once stop channel, a completion channel, and one
+buffered signal subscription. `Stop` records a request immediately and is idempotent;
+`Join` waits for the single shutdown coordinator to finish callbacks, cancellation,
+disposal, signal unregistration, identity-safe global clearing, and completion signaling.
 
 ### Application context
 
@@ -83,9 +93,9 @@ multiple simultaneous contexts are not an isolation boundary.
 
 - the state machine and root `context.Context`;
 - registered reflective service wrappers and their states;
-- the recorded initialization traversal;
+- the recorded dependency graph and initialized-service set;
 - health reporters and service descriptors;
-- the internal event channel.
+- synchronized lifecycle state.
 
 Its externally visible states are `not_initialized`, `initialization`, `initialized`,
 and terminal `used`. Access to services, stats, and health is valid only while initialized.
@@ -103,7 +113,7 @@ and panic conversion around supported callback paths.
 flowchart LR
     Register[Register services] --> Init[Resolve dependencies and initialize]
     Init --> Start[Run AfterStart callbacks]
-    Start --> Live[Process events]
+    Start --> Live[Serve until explicit or signal stop]
     Live --> Stop[Run BeforeStop callbacks]
     Stop --> Cancel[Cancel root context]
     Cancel --> Dispose[Dispose initialized services]
@@ -117,26 +127,30 @@ The implemented lifecycle has these phases:
    name are rejected.
 2. **Initialization**: dependencies are initialized recursively when requested. Reflection
    fields and environment fields are populated before supported `Init` callbacks run.
-3. **Start notification**: after all services initialize, `AfterStart` runs concurrently
-   for services implementing `StartAware`. No callback order is guaranteed.
-4. **Steady state**: the event loop waits for an explicit stop, a process signal, or an
-   internal panic event.
-5. **Stop notification**: `BeforeStop` runs sequentially in reverse recorded initialization
-   traversal for services implementing `StopAware`.
+3. **Publication and start notification**: the initialized state and global context are
+   visible before `AfterStart` runs concurrently. No callback order is guaranteed.
+4. **Steady state**: one application coordinator waits for an explicit stop or a catchable
+   process signal.
+5. **Stop notification**: `BeforeStop` runs sequentially in stable consumer-before-dependency
+   topological order. Unrelated ready services are ordered by name.
 6. **Cancellation**: the root context is canceled so injected contexts become done.
 7. **Disposal**: initialized services are disposed concurrently through `Disposable` and
    `DisposableE`; the service maps are then released and the context becomes `used`.
 
-Initialization dependencies impose ordering, but registration map iteration and start or
-dispose concurrency do not. Services must not use incidental ordering as a coordination
-mechanism. A service should implement only the initialization variants it intends to run:
+Initialization dependencies impose stop ordering, while start and disposal callbacks remain
+concurrent. Services must not use incidental callback ordering as a coordination mechanism.
+A service should implement only the initialization variants it intends to run:
 the wrapper checks each supported interface in a fixed sequence, so multiple matching
 variants can all be invoked.
 
-Startup failure behavior is currently path-dependent. Invalid wiring and initialization
-errors use fatal logging, while an unexpected startup panic captured by the outer context
-path disposes initialized services before reporting a fatal failure. Failure behavior is
-therefore a public compatibility concern and must not be changed implicitly.
+Startup wiring, configuration, initialization errors, and captured panics propagate through
+the internal startup path. No start or stop notification runs after a failed startup; the
+root context is canceled and every successfully initialized dependency is disposed before
+the existing fatal creation boundary reports failure.
+
+Callbacks execute without a container or global lock held. `AfterStart` and `BeforeStop`
+may therefore use global service lookup, state, statistics, and health. Public state remains
+`initialized` throughout `BeforeStop`, then changes to `used` before cancellation/disposal.
 
 ## Dependency Injection Contract
 
@@ -154,11 +168,19 @@ Names must be unique. `CTX` is reserved for the application context. A reflected
 must be a pointer to a struct because the container mutates its fields and tracks the same
 instance throughout the lifecycle.
 
+`ServicePackage` preserves every ordered entry until container validation. Duplicate
+explicit, derived, mixed, within-package, and cross-package names therefore fail visibly
+instead of being overwritten during package construction.
+
 ### Dependency lookup
 
 `ServiceProvider.ByName` resolves an exact service name. `ServiceProvider.ByType` and
 empty automatic injection resolve the reflected type string. A missing service or a cycle
 encountered during recursive initialization is a wiring failure.
+
+Global `GetTypedService[T]` uses the same reflected type name. Ordinary absence returns the
+zero value of `T` and `false`; a value registered under that name with an incompatible type
+panics with a diagnostic containing the name, expected type, and actual type.
 
 The `ctx` tag grammar currently supports:
 
@@ -182,13 +204,19 @@ boundary and requires focused tests when reflection code changes.
 lazily once per process. Defaults registered with `SetEnv` must therefore be set before the
 first configuration lookup.
 
-The effective precedence from highest to lowest is:
+`GetEnv(name)` checks the exact process key first, then its uppercase process form only when
+the exact spelling is absent, and finally the canonical uppercase non-process property map.
+A present empty process value is present and suppresses fallback. The effective precedence
+from highest to lowest is:
 
 1. process environment;
 2. command arguments in `--NAME=value` form;
 3. `.env_custom`;
 4. `.env`;
 5. defaults registered through `SetEnv`.
+
+Arguments, property files, and defaults are canonicalized to uppercase when ingested. If
+exact and uppercase process keys coexist, the exact spelling requested by the caller wins.
 
 The `env` tag names a key and may include a default, for example
 `env:"TIMEOUT=5s"`. Direct injection supports strings, booleans, integers, durations,
@@ -209,13 +237,18 @@ attributes. Applications can replace the writer or the complete handler before s
 
 Services implementing `HealthReporter` are registered with the application health
 aggregator. `AppContext.Health().Aggregate()` returns the overall status and per-service
-components. Health reporting is pull-based; the container does not expose a network endpoint.
+components in a fresh map. Reduction is order-independent: `UP` is healthy,
+`PARTIALLY`/noncritical `DOWN` normalize to application `PARTIALLY`, and
+`DOWN_CRITICAL` or an unknown status yields application `DOWN`. Health reporting is
+pull-based; the container does not expose a network endpoint.
 
 ### Context statistics
 
 `AppContext.Stats()` exposes service descriptors containing resolved names, reflected
 types, lifecycle capabilities, and dependencies observed during initialization. This is a
-diagnostic view of wiring, not a mutable configuration API.
+diagnostic view of wiring, not a mutable configuration API. Every `Services()` call deep
+copies the map, descriptor values, and dependency slices so consumers cannot mutate
+container-owned state.
 
 ## Extension Points
 
@@ -235,8 +268,11 @@ review.
 
 ## Concurrency Ownership
 
-The core uses locks around context state, a root cancellation context, an event loop,
-concurrent start and disposal callbacks, signal delivery, timers, and connector goroutines.
+The core uses locks around context state, a root cancellation context, a single shutdown
+coordinator, concurrent start and disposal callbacks, signal delivery, timers, and connector
+goroutines. Timer and connector runs use replaceable generations with close-once termination
+and joined completion; connector sends also observe peer termination. Data channels are not
+closed while concurrent senders may still use them.
 Every new asynchronous path must document:
 
 - who creates it;

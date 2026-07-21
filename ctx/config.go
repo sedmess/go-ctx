@@ -2,6 +2,7 @@ package ctx
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -23,7 +24,7 @@ func initProperties() {
 		envFileMap := make(map[string]string)
 
 		appDefaultProperties.Range(func(key, value any) bool {
-			envFileMap[key.(string)] = value.(string)
+			envFileMap[strings.ToUpper(key.(string))] = value.(string)
 			return true
 		})
 
@@ -70,7 +71,7 @@ func readFile(path string, properties map[string]string) {
 var appDefaultProperties sync.Map
 
 func SetEnv(key string, value string) {
-	appDefaultProperties.Store(key, value)
+	appDefaultProperties.Store(strings.ToUpper(key), value)
 }
 
 var envTypes = map[reflect.Type]func(e *EnvValue) any{
@@ -173,26 +174,18 @@ func (instance *EnvValue) AsStringSetDefault(def []string) map[string]bool {
 
 func (instance *EnvValue) AsInt() int {
 	instance.fatalIfNotExists()
-	if a, err := strconv.Atoi(instance.value); err != nil {
+	a, err := strconv.Atoi(instance.value)
+	if err != nil {
 		panic(instance.name + ": can't convert to integer: " + instance.value)
-		return 0
-	} else {
-		return a
 	}
+	return a
 }
 
 func (instance *EnvValue) AsIntDefault(def int) int {
-	if instance.IsPresent() {
-		if a, err := strconv.Atoi(instance.value); err != nil {
-			panic(instance.name + ": can't convert to integer: " + instance.value)
-			return 0
-		} else {
-			return a
-		}
-		return 0
-	} else {
+	if !instance.IsPresent() {
 		return def
 	}
+	return instance.AsInt()
 }
 
 func (instance *EnvValue) AsIntArray() []int {
@@ -240,26 +233,18 @@ func (instance *EnvValue) AsIntSetDefault() map[int]bool {
 
 func (instance *EnvValue) AsInt64() int64 {
 	instance.fatalIfNotExists()
-	if a, err := strconv.ParseInt(instance.value, 10, 64); err != nil {
+	a, err := strconv.ParseInt(instance.value, 10, 64)
+	if err != nil {
 		panic(instance.name + ": can't convert to int64: " + instance.value)
-		return 0
-	} else {
-		return a
 	}
+	return a
 }
 
 func (instance *EnvValue) AsInt64Default(def int64) int64 {
-	if instance.IsPresent() {
-		if a, err := strconv.ParseInt(instance.value, 10, 64); err != nil {
-			panic(instance.name + ": can't convert to int64: " + instance.value)
-			return 0
-		} else {
-			return a
-		}
-		return 0
-	} else {
+	if !instance.IsPresent() {
 		return def
 	}
+	return instance.AsInt64()
 }
 
 func (instance *EnvValue) AsInt64Array() []int64 {
@@ -307,12 +292,11 @@ func (instance *EnvValue) AsInt64SetDefault() map[int64]bool {
 
 func (instance *EnvValue) AsBool() bool {
 	instance.fatalIfNotExists()
-	if boolValue, err := strconv.ParseBool(instance.value); err != nil {
+	boolValue, err := strconv.ParseBool(instance.value)
+	if err != nil {
 		panic(instance.name + ": can't convert to boolean: " + instance.value)
-		return false
-	} else {
-		return boolValue
 	}
+	return boolValue
 }
 
 func (instance *EnvValue) AsBoolDefault(def bool) bool {
@@ -325,12 +309,11 @@ func (instance *EnvValue) AsBoolDefault(def bool) bool {
 
 func (instance *EnvValue) AsDuration() time.Duration {
 	instance.fatalIfNotExists()
-	if durationValue, err := time.ParseDuration(instance.value); err != nil {
+	durationValue, err := time.ParseDuration(instance.value)
+	if err != nil {
 		panic(instance.name + ": can't convert to time.Duration: " + instance.value)
-		return 0
-	} else {
-		return durationValue
 	}
+	return durationValue
 }
 
 func (instance *EnvValue) AsDurationDefault(def time.Duration) time.Duration {
@@ -343,12 +326,11 @@ func (instance *EnvValue) AsDurationDefault(def time.Duration) time.Duration {
 
 func (instance *EnvValue) AsTime() time.Time {
 	instance.fatalIfNotExists()
-	if val, err := time.Parse(time.RFC3339, instance.value); err != nil {
+	val, err := time.Parse(time.RFC3339, instance.value)
+	if err != nil {
 		panic(instance.name + ": can't convert to time.Time using RFC3339 format: " + instance.value)
-		return time.Now()
-	} else {
-		return val
 	}
+	return val
 }
 
 func (instance *EnvValue) AsTimeDefault(def time.Time) time.Time {
@@ -423,11 +405,13 @@ func (instance *EnvValue) String() string {
 
 func GetEnv(name string) *EnvValue {
 	initProperties()
-	var value string
-	var set bool
-	value, set = os.LookupEnv(name)
+	value, set := os.LookupEnv(name)
+	canonicalName := strings.ToUpper(name)
+	if !set && canonicalName != name {
+		value, set = os.LookupEnv(canonicalName)
+	}
 	if !set && properties != nil {
-		value, set = properties[name]
+		value, set = properties[canonicalName]
 	}
 	return &EnvValue{name: name, set: set, value: value}
 }
@@ -462,13 +446,22 @@ func Env[T any]() T {
 }
 
 func InjectEnv(target any) {
+	if err := injectEnv(target); err != nil {
+		logger.Fatal(ctxTag, err.Error())
+	}
+}
+
+func injectEnv(target any) error {
 	sType := reflect.TypeOf(target)
+	if sType == nil {
+		return fmt.Errorf("<nil> must be pointer to a struct")
+	}
 	if sType.Kind() != reflect.Pointer {
-		logger.Fatal(ctxTag, sType.String(), "must be pointer to a struct")
+		return fmt.Errorf("%s must be pointer to a struct", sType)
 	}
 	sTypeElem := sType.Elem()
 	if sTypeElem.Kind() != reflect.Struct {
-		logger.Fatal(ctxTag, sType.String(), "must be pointer to a struct")
+		return fmt.Errorf("%s must be pointer to a struct", sType)
 	}
 	sValueElem := reflect.ValueOf(target).Elem()
 
@@ -488,10 +481,11 @@ func InjectEnv(target any) {
 					logger.Debug(ctxTag, "inject EnvValue", tag.env, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String())
 					setFieldValue(sField, sValue, eValue)
 				} else {
-					logger.Fatal(ctxTag, "can't inject EnvValue", tag.env, "into", sType.String()+"."+sField.Name, "with type", sFieldType.String(), "- type not supported")
+					return fmt.Errorf("can't inject EnvValue %s into %s.%s with type %s - type not supported", tag.env, sType, sField.Name, sFieldType)
 				}
 			}
 			continue
 		}
 	}
+	return nil
 }

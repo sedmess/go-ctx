@@ -2,6 +2,8 @@ package ctx
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"reflect"
 
@@ -17,14 +19,17 @@ type reflectiveServiceWrapper struct {
 	ctx    context.Context
 }
 
-func newReflectiveServiceWrapper(ctx context.Context, service any, name string) *reflectiveServiceWrapper {
+func newReflectiveServiceWrapper(ctx context.Context, service any, name string) (*reflectiveServiceWrapper, error) {
 	sType := reflect.TypeOf(service)
+	if sType == nil {
+		return nil, fmt.Errorf("<nil> can't be a service - must be a pointer to a struct")
+	}
 	if sType.Kind() != reflect.Pointer {
-		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
+		return nil, fmt.Errorf("[%s] can't be a service - must be a pointer to a struct", sType)
 	}
 	sTypeElem := sType.Elem()
 	if sTypeElem.Kind() != reflect.Struct {
-		logger.Fatal(ctxTag, "["+sType.String()+"] can't be a service - must be a pointer to a struct")
+		return nil, fmt.Errorf("[%s] can't be a service - must be a pointer to a struct", sType)
 	}
 	var sName string
 	if name == "" {
@@ -32,7 +37,7 @@ func newReflectiveServiceWrapper(ctx context.Context, service any, name string) 
 	} else {
 		sName = name
 	}
-	return &reflectiveServiceWrapper{ctx: ctx, sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}
+	return &reflectiveServiceWrapper{ctx: ctx, sRef: service, sValue: reflect.ValueOf(service).Elem(), sType: sTypeElem, name: sName}, nil
 }
 
 func (w *reflectiveServiceWrapper) Name() string {
@@ -66,7 +71,7 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 			}
 			setFieldValue(field, value, l)
 		} else {
-			logger.Fatal(w.name, "can't inject logger into field", field.Name)
+			panic(fmt.Sprintf("can't inject logger into field %s", field.Name))
 		}
 	}
 	injectServiceFn := func(field reflect.StructField, value reflect.Value, name string) {
@@ -84,7 +89,7 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		if field.Type.AssignableTo(reflect.TypeOf((*context.Context)(nil)).Elem()) {
 			setFieldValue(field, value, w.ctx)
 		} else {
-			logger.Fatal(w.name, "can't inject context.Context into field", field.Name)
+			panic(fmt.Sprintf("can't inject context.Context into field %s", field.Name))
 		}
 	}
 
@@ -122,7 +127,9 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 		}
 	}
 
-	InjectEnv(w.sRef)
+	if err := injectEnv(w.sRef); err != nil {
+		return err
+	}
 
 	if v, ok := w.sRef.(Initializable); ok {
 		if err := nopanic.Run(func() {
@@ -135,11 +142,11 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 	if v, ok := w.sRef.(InitializableE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(serviceProvider)
-		}); nopanic.IsPanicWrapperError(err) {
-			logger.Debug(ctxTag, "panic:", err.Error())
-			return err.(nopanic.PanicWrapperError).ToReasonError()
-		} else if err != nil {
-			return err
+		}); err != nil {
+			if nopanic.IsPanicWrapperError(err) {
+				logger.Debug(ctxTag, "panic:", err.Error())
+			}
+			return unwrapPanicError(err)
 		}
 	}
 	if v, ok := w.sRef.(InitializableContext); ok {
@@ -153,11 +160,11 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 	if v, ok := w.sRef.(InitializableContextE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(w.ctx, serviceProvider)
-		}); nopanic.IsPanicWrapperError(err) {
-			logger.Debug(ctxTag, "panic:", err.Error())
-			return err.(nopanic.PanicWrapperError).ToReasonError()
-		} else if err != nil {
-			return err
+		}); err != nil {
+			if nopanic.IsPanicWrapperError(err) {
+				logger.Debug(ctxTag, "panic:", err.Error())
+			}
+			return unwrapPanicError(err)
 		}
 	}
 	if v, ok := w.sRef.(Constructable); ok {
@@ -171,11 +178,11 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 	if v, ok := w.sRef.(ConstructableE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init()
-		}); nopanic.IsPanicWrapperError(err) {
-			logger.Debug(ctxTag, "panic:", err.Error())
-			return err.(nopanic.PanicWrapperError).ToReasonError()
-		} else if err != nil {
-			return err
+		}); err != nil {
+			if nopanic.IsPanicWrapperError(err) {
+				logger.Debug(ctxTag, "panic:", err.Error())
+			}
+			return unwrapPanicError(err)
 		}
 	}
 	if v, ok := w.sRef.(ConstructableContext); ok {
@@ -189,11 +196,11 @@ func (w *reflectiveServiceWrapper) init(serviceProvider ServiceProvider) error {
 	if v, ok := w.sRef.(ConstructableContextE); ok {
 		if err := nopanic.RunE(func() error {
 			return v.Init(w.ctx)
-		}); nopanic.IsPanicWrapperError(err) {
-			logger.Debug(ctxTag, "panic:", err.Error())
-			return err.(nopanic.PanicWrapperError).ToReasonError()
-		} else if err != nil {
-			return err
+		}); err != nil {
+			if nopanic.IsPanicWrapperError(err) {
+				logger.Debug(ctxTag, "panic:", err.Error())
+			}
+			return unwrapPanicError(err)
 		}
 	}
 
@@ -236,11 +243,11 @@ func (w *reflectiveServiceWrapper) dispose() error {
 		}
 	}
 	if v, ok := w.sRef.(DisposableE); ok {
-		if err := nopanic.RunE(v.Dispose); nopanic.IsPanicWrapperError(err) {
-			logger.Debug(ctxTag, "panic:", err.Error())
-			return err.(nopanic.PanicWrapperError).ToReasonError()
-		} else if err != nil {
-			return err
+		if err := nopanic.RunE(v.Dispose); err != nil {
+			if nopanic.IsPanicWrapperError(err) {
+				logger.Debug(ctxTag, "panic:", err.Error())
+			}
+			return unwrapPanicError(err)
 		}
 	}
 	return nil
@@ -248,4 +255,12 @@ func (w *reflectiveServiceWrapper) dispose() error {
 
 func (w *reflectiveServiceWrapper) unwrap() any {
 	return w.sRef
+}
+
+func unwrapPanicError(err error) error {
+	var panicErr nopanic.PanicWrapperError
+	if errors.As(err, &panicErr) {
+		return panicErr.ToReasonError()
+	}
+	return err
 }

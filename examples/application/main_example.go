@@ -104,10 +104,10 @@ func (instance *timedService) Dispose() {
 	instance.l.Info("disposed")
 }
 
-// AfterStart starts a timer that logs every 2 seconds
+// AfterStart starts a timer that logs periodically.
 func (instance *timedService) AfterStart() {
 	instance.l.Info("afterStart")
-	instance.StartTimer(2*time.Second, func() {
+	instance.StartTimer(200*time.Millisecond, func() {
 		logger.Warn("timer", "onTimer!")
 	})
 	instance.l.Info("afterStart2")
@@ -116,7 +116,6 @@ func (instance *timedService) AfterStart() {
 // BeforeStop stops timer and waits during shutdown
 func (instance *timedService) BeforeStop() {
 	instance.l.Info("beforeStop")
-	time.Sleep(3 * time.Second)
 	instance.StopTimer()
 }
 
@@ -536,10 +535,10 @@ type slowDisposingService struct {
 	l logger.Logger `ctx:""`
 }
 
-// Dispose delays disposal by 10 seconds
+// Dispose demonstrates bounded cleanup work.
 func (s *slowDisposingService) Dispose() {
 	s.l.Info("start disposing...")
-	<-time.After(time.Second * 10)
+	<-time.After(100 * time.Millisecond)
 	s.l.Info("...disposed")
 }
 
@@ -690,13 +689,19 @@ func (t *timeParamExample) Init() {
 	t.l.Info("DATE1 =", t.date2)
 }
 
+func setProcessDefault(key, value string) {
+	if _, present := os.LookupEnv(key); !present {
+		_ = os.Setenv(key, value)
+	}
+}
+
 func main() {
 	ctx.SetEnv("AUTO_PARAM", "10")
 
-	_ = os.Setenv("SLOG_LEVEL", "debug")
-	_ = os.Setenv("SLOG_ADD_SOURCE", "true")
-	_ = os.Setenv("SLOG_ADD_COMMON_TAGS", "true")
-	_ = os.Setenv("SLOG_HANDLER", "legacy")
+	setProcessDefault("SLOG_LEVEL", "debug")
+	setProcessDefault("SLOG_ADD_SOURCE", "true")
+	setProcessDefault("SLOG_ADD_COMMON_TAGS", "true")
+	setProcessDefault("SLOG_HANDLER", "legacy")
 	_ = os.Setenv("AUTO_PARAM", "20")
 
 	ctx.SetSlogWriter(
@@ -705,7 +710,7 @@ func main() {
 	)
 
 	_ = os.Setenv("MAP", "key1=value1|key2=123")
-	envMap := ctx.GetEnv("map").AsMap()
+	envMap := ctx.GetEnv("MAP").AsMap()
 	println(envMap["key1"].AsString())
 	println(envMap["key2"].AsInt())
 
@@ -724,19 +729,19 @@ func main() {
 
 	connAService := newConnAService()
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		connAService.Send("a")
 	}()
 
 	r2 := &reflectiveSingletonService2{}
 
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(150 * time.Millisecond)
 		r2.Do()
 	}()
 
 	go func() {
-		<-time.After(5 * time.Second)
+		<-time.After(100 * time.Millisecond)
 		aService := u.First(ctx.GetService(aServiceName)).(*aService)
 		aService.Do()
 	}()
@@ -778,14 +783,15 @@ func main() {
 		println("application stopped 2")
 	}()
 
+	runtime := ctx.GetEnv("EXAMPLE_RUNTIME").AsDurationDefault(time.Second)
 	go func() {
-		<-time.After(time.Second * 60)
+		timer := time.NewTimer(runtime)
+		defer timer.Stop()
+		<-timer.C
 		application.Stop()
-		application.Join()
-		println("application stopped 3")
-		application.Join()
 	}()
 
+	application.Join()
 	application.Join()
 
 	println("application stopped")

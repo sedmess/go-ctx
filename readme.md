@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sedmess/go-ctx.svg)](https://pkg.go.dev/github.com/sedmess/go-ctx)
 
-The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration.
+The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration. v0.12.0 requires Go 1.26 or later and adds no non-standard-library dependencies.
 
 See [Architecture](docs/architecture.md) for package boundaries, dependency injection,
 configuration precedence, and the application lifecycle.
@@ -54,9 +54,12 @@ func main() {
 	app := ctx.CreateContextualizedApplication(
 		ctx.PackageOf(&HelloService{}),
 	)
-	app.Join()
+	app.Stop().Join()
 }
 ```
+
+`Stop` is immediate, idempotent, and safe from concurrent callers. `Join` waits until stop
+callbacks, cancellation, disposal, signal cleanup, and global context cleanup finish.
 
 ## Detailed Examples
 
@@ -126,6 +129,33 @@ func (instance *aService) Health() health.ServiceHealth {
 
 ## Advanced Topics
 
+### v0.12.0 Runtime Contracts
+
+- `BeforeStop` is deterministic: consumers stop before dependencies, with service-name
+  ordering for unrelated services. Lifecycle callbacks may query services and diagnostics.
+- `GetTypedService[T]` returns `(zero, false)` for ordinary absence; always check the boolean.
+- Duplicate service names are rejected, health keeps the worst normalized severity, and
+  statistics are deep consumer-owned snapshots.
+- Configuration resolves exact process spelling, uppercase process fallback, then uppercase
+  canonical arguments/files/defaults without changing source precedence.
+- Timer and connector shutdown joins the active generation; application `Join` includes
+  signal unregistration and all owned cleanup.
+
+`StreamingChan.ToChan` now returns receive-only outputs:
+
+```go
+values, failures := stream.ToChan(16)
+for value := range values {
+	_ = value
+}
+if err := <-failures; err != nil {
+	// handle the source error
+}
+```
+
+This receive-direction correction is intentionally source-incompatible for callers that
+copied the old exact `chan<-` signature. See the [v0.12.0 migration guide](docs/migration-v0.12.0.md).
+
 ### Custom Service Tags
 ```go
 type newTags struct {
@@ -142,9 +172,10 @@ type slogExample struct {
 }
 ```
 
-## Running the Example
+## Running the Examples
 ```bash
-go run main_example.go
+go run ./examples/task
+go run ./examples/application
 ```
 
 ## License

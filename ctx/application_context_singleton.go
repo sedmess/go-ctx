@@ -1,17 +1,23 @@
 package ctx
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"reflect"
+	"sync"
+	"syscall"
+
 	"github.com/sedmess/go-ctx/ctx/autoctx"
 	"github.com/sedmess/go-ctx/ctx/logger"
 	"github.com/sedmess/go-ctx/u"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
 )
 
-var globalLock sync.Mutex
+var globalLock sync.RWMutex
 var ctx *appContext
+var startingContext *appContext
+var notifySignals = signal.Notify
+var stopSignalNotifications = signal.Stop
 
 type Application interface {
 	Stop() Application
@@ -19,18 +25,24 @@ type Application interface {
 }
 
 type application struct {
-	stopCh chan bool
-	mu     sync.RWMutex
+	stopOnce  sync.Once
+	stopCh    chan struct{}
+	startDone chan struct{}
+	doneCh    chan struct{}
+	signalCh  chan os.Signal
 }
 
+// Stop records a stop request. It is safe to call repeatedly or concurrently and does not
+// wait for shutdown cleanup; call Join when completion is required.
 func (a *application) Stop() Application {
-	a.stopCh <- true
+	a.stopOnce.Do(func() { close(a.stopCh) })
 	return a
 }
 
+// Join waits until lifecycle callbacks, cancellation, disposal, signal unregistration, and
+// global-context cleanup have completed. Repeated and concurrent calls are safe.
 func (a *application) Join() {
-	a.mu.RLock()
-	a.mu.RUnlock()
+	<-a.doneCh
 }
 
 func CreateContextualizedApplication(servicePackages ...ServicePackage) Application {
@@ -43,89 +55,109 @@ func CreateAutoContextualizedApplication() Application {
 
 func startApplication(servicePackages []ServicePackage) Application {
 	InitSlog()
-	ctxInstance := func() *appContext {
+	ctxInstance := newApplicationContext()
+
+	globalLock.Lock()
+	if ctx != nil || startingContext != nil {
+		globalLock.Unlock()
+		panic("an application context is already active")
+	}
+	startingContext = ctxInstance
+	globalLock.Unlock()
+
+	clearGlobal := func() {
 		globalLock.Lock()
-		defer globalLock.Unlock()
-
-		ctxInstance := newApplicationContext()
-
-		for _, pkg := range servicePackages {
-			pkg.ForEach(func(service any, name string) {
-				ctxInstance.register(service, name)
-			})
+		if ctx == ctxInstance {
+			ctx = nil
 		}
-
-		ctxInstance.start()
-
-		ctx = ctxInstance
-
-		return ctxInstance
-	}()
-
-	ctxInstanceStoppedCh := make(chan bool)
-	go ctxInstance.eventLoop(ctxInstanceStoppedCh)
-
-	app := application{
-		stopCh: make(chan bool),
-		mu:     sync.RWMutex{},
+		if startingContext == ctxInstance {
+			startingContext = nil
+		}
+		globalLock.Unlock()
 	}
 
+	var registrationErr error
+	for _, pkg := range servicePackages {
+		pkg.ForEach(func(service any, name string) {
+			if registrationErr == nil {
+				registrationErr = ctxInstance.register(service, name)
+			}
+		})
+	}
+	if registrationErr != nil {
+		ctxInstance.cleanupFailedStart()
+		clearGlobal()
+		logger.Fatal(ctxTag, "can't register services:", registrationErr)
+	}
+	if err := ctxInstance.start(); err != nil {
+		clearGlobal()
+		logger.Fatal(ctxTag, "can't start context:", err)
+	}
+	globalLock.Lock()
+	if startingContext != ctxInstance || ctx != nil {
+		globalLock.Unlock()
+		ctxInstance.cleanupFailedStart()
+		panic("application context reservation was lost during startup")
+	}
+	ctx = ctxInstance
+	startingContext = nil
+	globalLock.Unlock()
+
+	app := &application{
+		stopCh:    make(chan struct{}),
+		startDone: make(chan struct{}),
+		doneCh:    make(chan struct{}),
+		signalCh:  make(chan os.Signal, 1),
+	}
+	notifySignals(app.signalCh, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
-		defer func() {
-			globalLock.Lock()
-			defer globalLock.Unlock()
-
-			ctx = nil
-		}()
-
-		osSignalCh := make(chan os.Signal)
-		signal.Notify(osSignalCh, os.Interrupt, os.Kill, syscall.SIGTERM)
-
 		select {
-		case sSig := <-osSignalCh:
-			logger.Debug(ctxTag, "closing application by system signal:", sSig.String())
-			break
+		case received := <-app.signalCh:
+			logger.Debug(ctxTag, "closing application by system signal:", received.String())
 		case <-app.stopCh:
 			logger.Debug(ctxTag, "closing application by stop signal")
-			break
 		}
 
-		ctxInstance.eventBus <- event{kind: eStop}
-		<-ctxInstanceStoppedCh
-		app.mu.Unlock()
+		stopSignalNotifications(app.signalCh)
+		<-app.startDone
+		ctxInstance.stop()
+		clearGlobal()
+		close(app.doneCh)
 	}()
 
-	app.mu.Lock()
-
-	return &app
+	ctxInstance.afterStart()
+	close(app.startDone)
+	return app
 }
 
 func GetService(serviceName string) (svc any, ok bool) {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-
-	if ctx != nil {
-		return ctx.GetService(serviceName)
-	} else {
+	globalLock.RLock()
+	current := ctx
+	globalLock.RUnlock()
+	if current == nil {
 		panic("no active context")
 	}
+	return current.GetService(serviceName)
 }
 
+// GetTypedService returns the registered typed service. Ordinary absence returns the zero
+// value and false; an incompatible value registered under the expected name is invalid
+// wiring and causes a diagnostic panic.
 func GetTypedService[T any]() (svc T, ok bool) {
-	if srv, ok := GetService(u.GetInterfaceName[T]()); ok {
-		return srv.(T), true
-	} else {
-		panic("no service of given type available")
+	serviceName := u.GetInterfaceName[T]()
+	srv, found := GetService(serviceName)
+	if !found {
+		var zero T
+		return zero, false
 	}
-}
-
-func sendEvent(e event) {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-
-	if ctx != nil {
-		ctx.sendEvent(e)
-	} else {
-		panic("no active context")
+	typed, assignable := srv.(T)
+	if !assignable {
+		actualType := "<nil>"
+		if actual := reflect.TypeOf(srv); actual != nil {
+			actualType = actual.String()
+		}
+		panic(fmt.Sprintf("service [%s] has incompatible type: expected %s, actual %s", serviceName, reflect.TypeFor[T](), actualType))
 	}
+	return typed, true
 }

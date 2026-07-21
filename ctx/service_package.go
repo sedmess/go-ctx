@@ -2,17 +2,20 @@ package ctx
 
 import "reflect"
 
+type servicePackageEntry struct {
+	name    string
+	service any
+}
+
+// ServicePackage retains registration order and duplicate entries until the application
+// container validates them. Package construction never silently replaces a service.
 type ServicePackage struct {
-	namedServices map[string]any
-	services      []any
+	entries []servicePackageEntry
 }
 
 func (p *ServicePackage) ForEach(fn func(service any, name string)) {
-	for name, service := range p.namedServices {
-		fn(service, name)
-	}
-	for _, service := range p.services {
-		fn(service, "")
+	for _, entry := range p.entries {
+		fn(entry.service, entry.name)
 	}
 }
 
@@ -46,22 +49,13 @@ func TypedWithName[T any](name string) NamedService {
 }
 
 func PackageOf(services ...any) ServicePackage {
-	pkg := ServicePackage{
-		namedServices: make(map[string]any),
-		services:      make([]any, 0),
-	}
-
+	pkg := ServicePackage{entries: make([]servicePackageEntry, 0, len(services))}
 	for _, svc := range services {
 		if named, ok := svc.(NamedService); ok {
-			if named.name != "" {
-				pkg.namedServices[named.name] = named.svc
-			} else {
-				pkg.services = append(pkg.services, named.svc)
-			}
+			pkg.entries = append(pkg.entries, servicePackageEntry{name: named.name, service: named.svc})
 		} else {
-			pkg.services = append(pkg.services, svc)
+			pkg.entries = append(pkg.entries, servicePackageEntry{service: svc})
 		}
 	}
-
 	return pkg
 }

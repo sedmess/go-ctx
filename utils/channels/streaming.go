@@ -183,9 +183,11 @@ func (ch StreamingChan[T]) CollectToSlice() ([]T, error) {
 	return result, err
 }
 
-func (ch StreamingChan[T]) ToChan(outBufSize int) (outCh chan<- T, errCh chan<- error) {
-	outCh = make(chan T, outBufSize)
-	errCh = make(chan error, 1)
+// ToChan converts a stream into producer-owned receive-only value and error channels.
+// Consumers must drain the outputs because this method has no cancellation input.
+func (ch StreamingChan[T]) ToChan(outBufSize int) (<-chan T, <-chan error) {
+	outCh := make(chan T, outBufSize)
+	errCh := make(chan error, 1)
 	go func() {
 		defer close(errCh)
 		defer close(outCh)
@@ -197,5 +199,5 @@ func (ch StreamingChan[T]) ToChan(outBufSize int) (outCh chan<- T, errCh chan<- 
 			errCh <- err
 		}
 	}()
-	return
+	return outCh, errCh
 }

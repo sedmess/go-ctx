@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -39,7 +40,7 @@ func TestStartApplicationAsync(t *testing.T) {
 	type s1 struct {
 	}
 	type s2 struct {
-		s1 *s1 `inject:""`
+		s1 *s1 `ctx:""`
 	}
 
 	is1 := &s1{}
@@ -114,7 +115,38 @@ func Test_GenericService(t *testing.T) {
 	app := CreateContextualizedApplication(PackageOf(&genericService[string]{data: "data"}))
 	defer func() { app.Stop().Join() }()
 
-	s1 := GetTypedService[*genericService[string]]()
+	s1, found := GetTypedService[*genericService[string]]()
+	if !found {
+		t.Fatal("generic service was not registered")
+	}
 
 	println(s1.data)
+}
+
+type absentTypedService struct{}
+type incompatibleTypedService struct{}
+
+func TestGetTypedServiceReturnsZeroFalseWhenMissing(t *testing.T) {
+	app := CreateContextualizedApplication(PackageOf(&incompatibleTypedService{}))
+	defer app.Stop().Join()
+
+	service, found := GetTypedService[*absentTypedService]()
+	if found || service != nil {
+		t.Fatalf("lookup = (%v, %t), want (nil, false)", service, found)
+	}
+}
+
+func TestGetTypedServiceReportsIncompatibleRegistration(t *testing.T) {
+	expectedName := "*ctx.absentTypedService"
+	app := CreateContextualizedApplication(PackageOf(WithName(expectedName, &incompatibleTypedService{})))
+	defer app.Stop().Join()
+
+	defer func() {
+		recovered := recover()
+		message, ok := recovered.(string)
+		if !ok || !strings.Contains(message, expectedName) || !strings.Contains(message, "incompatibleTypedService") {
+			t.Fatalf("panic = %v; want service name and actual type", recovered)
+		}
+	}()
+	GetTypedService[*absentTypedService]()
 }

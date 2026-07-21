@@ -7,8 +7,6 @@ import (
 	"github.com/sedmess/go-ctx/u"
 )
 
-var errSample = &panicWrapperError{}
-
 type PanicWrapperError interface {
 	Error() string
 	Stack() u.CallStack
@@ -37,8 +35,11 @@ func (p *panicWrapperError) ToReasonError() error {
 	return errors.New(p.Reason())
 }
 
+// IsPanicWrapperError reports whether err directly or transitively wraps a panic captured by
+// Run, RunE, or RunResult.
 func IsPanicWrapperError(err error) bool {
-	return errors.Is(err, errSample)
+	var panicErr PanicWrapperError
+	return errors.As(err, &panicErr)
 }
 
 func wrapPanicReason(reason any) PanicWrapperError {

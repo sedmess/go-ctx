@@ -24,3 +24,10 @@ build/bin
 .env
 
 local/
+
+# Editor and operating-system artifacts
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
