@@ -57,7 +57,7 @@ rationale. Lifecycle or concurrency work MUST include a `go test -race ./...` va
 **Purpose**: Establish the planned Go package and validation structure
 
 - [ ] T001 Create the planned package and file structure at [exact Go paths]
-- [ ] T002 Confirm Go 1.26 compatibility and justify dependencies in go.mod
+- [ ] T002 Confirm Go 1.27 compatibility and justify dependencies in go.mod
 - [ ] T003 [P] Create colocated test scaffolding in [package]/[feature]_test.go
 
 ---

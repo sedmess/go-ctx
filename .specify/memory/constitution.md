@@ -1,12 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
+- Version change: 1.1.0 -> 1.2.0
 - Modified principles:
-  - I. Stable Library Contracts: raised the supported Go baseline from 1.21 to 1.26 and
-    made future baseline increases explicit breaking changes with synchronized release
-    documentation requirements
+  - I. Stable Library Contracts: raised the supported Go baseline from 1.26 to 1.27 for
+    v0.13.0 and retained the explicit breaking-change and synchronized-release requirements
 - Modified sections:
-  - Architecture and Technical Constraints: production compatibility now targets Go 1.26
+  - Architecture and Technical Constraints: production compatibility now targets Go 1.27
   - Development Workflow and Quality Gates: validation must use the declared Go baseline
 - Added sections: none
 - Removed sections: none
@@ -15,12 +14,13 @@ Sync Impact Report
   - ✅ updated: .specify/templates/tasks-template.md
   - ✅ reviewed: .specify/templates/spec-template.md; no Go baseline guidance present
 - Runtime guidance:
-  - ✅ updated: AGENTS.md, readme.md, docs/architecture.md, docs/migration-v0.12.0.md
+  - ✅ updated: AGENTS.md, readme.md, docs/architecture.md, docs/migration-v0.13.0.md
   - ✅ updated: go.mod and .github/workflows/ci.yml
-  - ✅ updated: specs/001-fix-runtime-contracts planning, contracts, tasks, and quickstart
-  - ✅ updated: generic reflection helpers to use the Go 1.26-supported reflect.TypeFor API
+  - ✅ added: specs/002-go-1-27-upgrade planning, contracts, tasks, and quickstart
+  - ✅ updated: typed stream Map/FlatMap methods to use Go 1.27 generic methods
+  - ✅ preserved: docs/migration-v0.12.0.md and specs/001-fix-runtime-contracts historical records
 - Command guidance:
-  - ✅ reviewed: all .agents/skills/speckit-*/SKILL.md files; no Go baseline guidance present
+  - ✅ reviewed: all .agents/skills/speckit-*/SKILL.md files; no embedded Go baseline guidance
 - Follow-up TODOs: none
 -->
 # go-ctx Constitution
@@ -33,7 +33,7 @@ Sync Impact Report
 reflection tags, configuration precedence, lifecycle callbacks, and observable failure
 behavior are treated as public contracts. Changes MUST be additive by default. A breaking
 change requires explicit scope, migration guidance, updated examples, and an intentional
-semantic-version release decision. The Go 1.26 language and toolchain baseline MUST remain
+semantic-version release decision. The Go 1.27 language and toolchain baseline MUST remain
 supported until a future baseline increase is explicitly approved and documented. Any
 future baseline increase MUST be treated as a breaking compatibility change and synchronized
 across module metadata, CI, consumer migration guidance, and the release decision.
@@ -95,7 +95,7 @@ use reflection-heavy APIs without reading implementation code.
 
 - The module path MUST remain `github.com/sedmess/go-ctx` unless a separately approved
   migration changes the public import path.
-- Production code MUST remain compatible with the declared Go 1.26 baseline and SHOULD
+- Production code MUST remain compatible with the declared Go 1.27 baseline and SHOULD
   prefer the standard library. Any external dependency requires a plan-level justification.
 - `ctx` is the orchestration boundary. Its focused subpackages and generic helper packages
   MUST follow the dependency direction documented in `docs/architecture.md`.
@@ -142,4 +142,4 @@ plan's Complexity Tracking section; an exception cannot waive a principle silent
 `docs/architecture.md` is the implementation-oriented architecture reference and MUST remain
 consistent with this constitution.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-19 | **Last Amended**: 2026-07-21
+**Version**: 1.2.0 | **Ratified**: 2026-07-19 | **Last Amended**: 2026-09-01

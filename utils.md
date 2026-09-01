@@ -38,6 +38,26 @@ panic.
 
 ## Package: utils/channels
 
+Go 1.27 generic methods preserve the mapper's result type:
+
+```go
+func (ch StreamingChan[T]) Map[Q any](mapper func(T) Q) StreamingChan[Q]
+func (ch StreamingChan[T]) FlatMap[Q any](mapper func(T) StreamingChan[Q]) StreamingChan[Q]
+```
+
+Direct calls infer `Q`, so a mapper returning `string` produces `StreamingChan[string]`
+without an `any` conversion. Map retains source order. Flat-map retains both source order
+and each nested stream's order. Empty streams stay empty, and source or nested errors remain
+observable through the existing stream contract.
+
+Package-level `Map` remains available. `FlatMap` is the canonical package helper;
+`FlapMap` remains as a deprecated forwarding alias for source compatibility.
+
+Generic method references without an inference context require explicit result type
+arguments, such as `stream.Map[string]` or `StreamingChan[int].Map[string]`. Generic methods
+do not satisfy interfaces containing the former non-generic method signatures; see the
+[v0.13.0 migration guide](docs/migration-v0.13.0.md).
+
 `StreamingChan.ToChan` converts stream elements into producer-owned receive-only channels:
 
 ```go

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sedmess/go-ctx.svg)](https://pkg.go.dev/github.com/sedmess/go-ctx)
 
-The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration. v0.12.0 requires Go 1.26 or later and adds no non-standard-library dependencies.
+The `go-ctx` library provides a framework for building modular applications with dependency injection, lifecycle management, and environment configuration. v0.13.0 requires Go 1.27 or later and adds no non-standard-library dependencies.
 
 See [Architecture](docs/architecture.md) for package boundaries, dependency injection,
 configuration precedence, and the application lifecycle.
@@ -128,6 +128,24 @@ func (instance *aService) Health() health.ServiceHealth {
 ```
 
 ## Advanced Topics
+
+### v0.13.0 Go 1.27 Typed Streams
+
+v0.13.0 raises the minimum supported toolchain to Go 1.27. Stream transformations now use
+generic methods, so result types are preserved without `any` wrappers:
+
+```go
+strings := channels.SliceToChannel([]int{1, 2, 3}).Map(strconv.Itoa)
+nested := strings.FlatMap(func(value string) channels.StreamingChan[int] {
+	return channels.SingleElemChannel(len(value))
+})
+```
+
+Package-level `FlatMap` is now the canonical spelling. The shipped `FlapMap` helper remains
+as a deprecated compatibility alias. Context-free method values/expressions may need an
+explicit result type argument, and generic methods no longer satisfy interfaces containing
+the former non-generic method signatures. See the
+[v0.13.0 migration guide](docs/migration-v0.13.0.md).
 
 ### v0.12.0 Runtime Contracts
 

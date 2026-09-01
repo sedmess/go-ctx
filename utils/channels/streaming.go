@@ -135,7 +135,8 @@ func Map[P any, Q any](ch StreamingChan[P], mapper func(data P) Q) StreamingChan
 	return newCh
 }
 
-func FlapMap[P any, Q any](ch StreamingChan[P], mapper func(data P) StreamingChan[Q]) StreamingChan[Q] {
+// FlatMap transforms every source value into a stream and emits each nested stream in order.
+func FlatMap[P any, Q any](ch StreamingChan[P], mapper func(data P) StreamingChan[Q]) StreamingChan[Q] {
 	newCh := CreateChannel(func(sink func(data Q, context context.Context) bool) error {
 		return ch.ForEachChanElem(func(data P) error {
 			c := mapper(data)
@@ -151,12 +152,20 @@ func FlapMap[P any, Q any](ch StreamingChan[P], mapper func(data P) StreamingCha
 	return newCh
 }
 
-func (ch StreamingChan[T]) Map(mapper func(data T) any) StreamingChan[any] {
+// FlapMap is retained for source compatibility.
+// Deprecated: use FlatMap.
+func FlapMap[P any, Q any](ch StreamingChan[P], mapper func(data P) StreamingChan[Q]) StreamingChan[Q] {
+	return FlatMap(ch, mapper)
+}
+
+// Map transforms every source value while preserving the mapper's result type.
+func (ch StreamingChan[T]) Map[Q any](mapper func(data T) Q) StreamingChan[Q] {
 	return Map(ch, mapper)
 }
 
-func (ch StreamingChan[T]) FlatMap(mapper func(data T) StreamingChan[any]) StreamingChan[any] {
-	return FlapMap(ch, mapper)
+// FlatMap transforms every source value into a typed stream and emits each stream in order.
+func (ch StreamingChan[T]) FlatMap[Q any](mapper func(data T) StreamingChan[Q]) StreamingChan[Q] {
+	return FlatMap(ch, mapper)
 }
 
 func (ch StreamingChan[T]) ForEachChanElem(onEach func(data T) error) error {

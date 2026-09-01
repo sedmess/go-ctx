@@ -45,7 +45,7 @@ task handoff or pull request.
 - `go run ./examples/task` runs the short task example.
 - `go run ./examples/application` runs the longer lifecycle demonstration.
 
-The module currently declares Go 1.26. Keep changes compatible with that baseline unless the
+The module currently declares Go 1.27. Keep changes compatible with that baseline unless the
 version update is intentional, approved, and documented. Before completing work, run
 `go build ./...`, `go test ./...`, and `go vet ./...`; also run `go test -race ./...` for
 changes affecting lifecycle, goroutines, channels, timers, synchronization, signals, or

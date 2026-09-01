@@ -1,3 +1,3 @@
 module github.com/sedmess/go-ctx
 
-go 1.26
+go 1.27

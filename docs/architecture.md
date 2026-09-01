@@ -1,6 +1,6 @@
 # go-ctx Architecture
 
-This document describes the architecture implemented by the repository as of 2026-07-21.
+This document describes the architecture implemented by the repository as of 2026-09-01.
 The [project constitution](../.specify/memory/constitution.md) defines the mandatory
 engineering constraints; this guide explains how those constraints map to packages and
 runtime behavior.
@@ -20,8 +20,8 @@ It is a library rather than a network service or deployment platform. It owns no
 transport protocol, or persistent state. Applications compose it directly and remain
 responsible for domain behavior and external integrations.
 
-The module declares Go 1.26 as its minimum supported language and toolchain baseline. A
-consumer environment must provide Go 1.26 or later; raising that baseline again is a
+The module declares Go 1.27 as its minimum supported language and toolchain baseline. A
+consumer environment must provide Go 1.27 or later; raising that baseline again is a
 breaking compatibility decision that requires synchronized module, CI, and migration
 guidance updates.
 

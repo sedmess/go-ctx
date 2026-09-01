@@ -18,7 +18,7 @@
   the iteration process.
 -->
 
-**Language/Version**: Go 1.26
+**Language/Version**: Go 1.27
 
 **Primary Dependencies**: Go standard library; list and justify any proposed addition
 
@@ -26,14 +26,14 @@
 
 **Testing**: Go `testing` package; race detector for lifecycle or concurrency work
 
-**Target Platform**: Go 1.26-supported platforms
+**Target Platform**: Go 1.27-supported platforms
 
 **Project Type**: Reusable Go library with runnable examples
 
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
 
 **Constraints**: Preserve public APIs, `ctx`/`env` tag semantics, lifecycle behavior, and
-Go 1.26 compatibility; define measurable feature-specific constraints
+Go 1.27 compatibility; define measurable feature-specific constraints
 
 **Scale/Scope**: [affected packages, public contracts, and expected service/concurrency scale]
 
@@ -52,7 +52,7 @@ goroutine/channel ownership, or none]
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - [ ] **Stable contracts**: Exported APIs, service naming, tag semantics, configuration
-      precedence, failure behavior, and Go 1.26 compatibility are preserved or have an
+      precedence, failure behavior, and Go 1.27 compatibility are preserved or have an
       explicit migration and versioning plan.
 - [ ] **Package direction**: Work stays within the documented package boundaries; generic
       helpers do not depend on `ctx`; every new dependency is justified.
